@@ -51,13 +51,28 @@ public class AutoLumberjackController {
         AFK_TIMER
     }
 
+    public enum AutoChainMode {
+        FULL_CHAIN("Full Chain"),
+        SAW_ONLY("Saw Only"),
+        CRAFT_ONLY("Craft Only");
+
+        private final String name;
+        AutoChainMode(String name) { this.name = name; }
+        public String getName() { return name; }
+    }
+
     private static State currentState = State.IDLE;
     private static boolean wasWalkingBeforeConsuming = false;
     private static boolean wasTaskingBeforeConsuming = false;
     private static boolean wasStaticBeforeConsuming = false;
 
+    // Toggle Fitur
     private static boolean autoEatEnabled = true;
     private static boolean autoDrinkEnabled = true;
+    private static boolean hasBackpack = true;
+    private static boolean antiStaffPauseEnabled = true;
+    private static boolean safetyDisconnectEnabled = true;
+    private static AutoChainMode autoChainMode = AutoChainMode.FULL_CHAIN;
 
     private static BlockPos targetBlockPos = null;
     private static float targetYaw = 0.0f;
@@ -81,6 +96,12 @@ public class AutoLumberjackController {
         int craftX, craftY, craftZ;
         float craftYaw, craftPitch;
         boolean hasCraft;
+        boolean hasBackpack = true;
+        boolean autoEatEnabled = true;
+        boolean autoDrinkEnabled = true;
+        boolean antiStaffPauseEnabled = true;
+        boolean safetyDisconnectEnabled = true;
+        String autoChainMode = "FULL_CHAIN";
     }
 
     public static void saveBenches() {
@@ -102,6 +123,13 @@ public class AutoLumberjackController {
                 data.craftPitch = craftPitch;
                 data.hasCraft = true;
             }
+            data.hasBackpack = hasBackpack;
+            data.autoEatEnabled = autoEatEnabled;
+            data.autoDrinkEnabled = autoDrinkEnabled;
+            data.antiStaffPauseEnabled = antiStaffPauseEnabled;
+            data.safetyDisconnectEnabled = safetyDisconnectEnabled;
+            data.autoChainMode = autoChainMode.name();
+
             try (FileWriter writer = new FileWriter(BENCH_CONFIG_FILE)) {
                 new GsonBuilder().setPrettyPrinting().create().toJson(data, writer);
             }
@@ -124,6 +152,16 @@ public class AutoLumberjackController {
                     craftBenchPos = new BlockPos(data.craftX, data.craftY, data.craftZ);
                     craftYaw = data.craftYaw;
                     craftPitch = data.craftPitch;
+                }
+                hasBackpack = data.hasBackpack;
+                autoEatEnabled = data.autoEatEnabled;
+                autoDrinkEnabled = data.autoDrinkEnabled;
+                antiStaffPauseEnabled = data.antiStaffPauseEnabled;
+                safetyDisconnectEnabled = data.safetyDisconnectEnabled;
+                try {
+                    autoChainMode = AutoChainMode.valueOf(data.autoChainMode);
+                } catch (Exception ignored) {
+                    autoChainMode = AutoChainMode.FULL_CHAIN;
                 }
             }
         } catch (Exception e) {
@@ -156,11 +194,24 @@ public class AutoLumberjackController {
     private static final Set<String> activeStaffOnDuty = new HashSet<>();
     private static boolean pausedByAdmin = false;
 
+    // Getter & Setter Toggles
     public static boolean isAutoEatEnabled() { return autoEatEnabled; }
-    public static void setAutoEatEnabled(boolean enabled) { autoEatEnabled = enabled; }
+    public static void setAutoEatEnabled(boolean enabled) { autoEatEnabled = enabled; saveBenches(); }
 
     public static boolean isAutoDrinkEnabled() { return autoDrinkEnabled; }
-    public static void setAutoDrinkEnabled(boolean enabled) { autoDrinkEnabled = enabled; }
+    public static void setAutoDrinkEnabled(boolean enabled) { autoDrinkEnabled = enabled; saveBenches(); }
+
+    public static boolean isHasBackpack() { return hasBackpack; }
+    public static void setHasBackpack(boolean backpack) { hasBackpack = backpack; saveBenches(); }
+
+    public static boolean isAntiStaffPauseEnabled() { return antiStaffPauseEnabled; }
+    public static void setAntiStaffPauseEnabled(boolean enabled) { antiStaffPauseEnabled = enabled; saveBenches(); }
+
+    public static boolean isSafetyDisconnectEnabled() { return safetyDisconnectEnabled; }
+    public static void setSafetyDisconnectEnabled(boolean enabled) { safetyDisconnectEnabled = enabled; saveBenches(); }
+
+    public static AutoChainMode getAutoChainMode() { return autoChainMode; }
+    public static void setAutoChainMode(AutoChainMode mode) { autoChainMode = mode; saveBenches(); }
 
     public static State getCurrentState() { return currentState; }
     public static TaskType getCurrentTaskType() { return currentTaskType; }
@@ -301,8 +352,53 @@ public class AutoLumberjackController {
         int plankCount = countMaterialInInventory(client, "PLANK");
         int logCount = countMaterialInInventory(client, "LOG");
 
-        client.player.displayClientMessage(Component.literal("§b[SylvaraBot] AutoChain: Planks = " + plankCount + ", Logs = " + logCount), false);
+        client.player.displayClientMessage(Component.literal("§b[SylvaraBot] Chain Mode (" + autoChainMode.getName() + "): Planks = " + plankCount + ", Logs = " + logCount), false);
 
+        if (autoChainMode == AutoChainMode.SAW_ONLY) {
+            if (logCount > 0 && sawBenchPos != null) {
+                client.player.displayClientMessage(Component.literal("§a[SylvaraBot] [Saw Only] Memotong Log di Saw Bench..."), false);
+                shouldDisconnectAfterCraft = false;
+                startStaticProcessing(TaskType.LOG_TO_PLANK);
+            } else {
+                if (hasBackpack) {
+                    client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Log habis, mengambil dari ransel..."), false);
+                    saveCurrentBotState(client);
+                    openRanselCommand(client);
+                    currentState = State.OPENING_RANSEL_WITHDRAW;
+                    ranselTimeoutTicks = 60;
+                    currentTaskType = TaskType.AUTO_CHAIN;
+                    isStaticProcessing = true;
+                } else {
+                    client.player.displayClientMessage(Component.literal("§c[SylvaraBot] Log habis & Backpack dimatikan! Berhenti."), false);
+                    stopTask();
+                }
+            }
+            return;
+        }
+
+        if (autoChainMode == AutoChainMode.CRAFT_ONLY) {
+            if (plankCount >= 32 && craftBenchPos != null) {
+                client.player.displayClientMessage(Component.literal("§6[SylvaraBot] [Craft Only] Menuju Craft Bench..."), false);
+                shouldDisconnectAfterCraft = false;
+                startStaticProcessing(TaskType.PLANK_TO_BOX);
+            } else {
+                if (hasBackpack) {
+                    client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Plank kurang (<32), mengambil dari ransel..."), false);
+                    saveCurrentBotState(client);
+                    openRanselCommand(client);
+                    currentState = State.OPENING_RANSEL_WITHDRAW;
+                    ranselTimeoutTicks = 60;
+                    currentTaskType = TaskType.AUTO_CHAIN;
+                    isStaticProcessing = true;
+                } else {
+                    client.player.displayClientMessage(Component.literal("§c[SylvaraBot] Plank kurang & Backpack dimatikan! Berhenti."), false);
+                    stopTask();
+                }
+            }
+            return;
+        }
+
+        // FULL_CHAIN
         if (plankCount >= 576 && craftBenchPos != null) {
             client.player.displayClientMessage(Component.literal("§6[SylvaraBot] Planks >= 9 stack! Menuju Craft Bench..."), false);
             shouldDisconnectAfterCraft = false;
@@ -317,13 +413,18 @@ public class AutoLumberjackController {
                 shouldDisconnectAfterCraft = true;
                 startStaticProcessing(TaskType.PLANK_TO_BOX);
             } else {
-                client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Bahan kurang, mengambil dari ransel..."), false);
-                saveCurrentBotState(client);
-                openRanselCommand(client);
-                currentState = State.OPENING_RANSEL_WITHDRAW;
-                ranselTimeoutTicks = 60;
-                currentTaskType = TaskType.AUTO_CHAIN;
-                isStaticProcessing = true;
+                if (hasBackpack) {
+                    client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Bahan kurang, mengambil dari ransel..."), false);
+                    saveCurrentBotState(client);
+                    openRanselCommand(client);
+                    currentState = State.OPENING_RANSEL_WITHDRAW;
+                    ranselTimeoutTicks = 60;
+                    currentTaskType = TaskType.AUTO_CHAIN;
+                    isStaticProcessing = true;
+                } else {
+                    client.player.displayClientMessage(Component.literal("§c[SylvaraBot] Bahan kurang & Backpack dimatikan! Berhenti."), false);
+                    stopTask();
+                }
             }
         }
     }
@@ -353,19 +454,26 @@ public class AutoLumberjackController {
     public static void startTask(BlockPos blockToInteract, float yaw, float pitch, TaskType taskType) {
         if (pausedByAdmin || currentState == State.DRINKING || currentState == State.EATING) return;
 
-        // Jika tugas nebang dan log di inventory sudah mencapai 18 stack atau lebih, simpan SEMUA log ke ransel
         if (taskType == TaskType.NEBANG && countLogStacksInInventory(clientInstance()) >= 18) {
             net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
-            client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Logs mencapai 18 stack! Menyimpan semua logs ke Ransel..."), false);
-            saveCurrentBotState(client);
-            openRanselCommand(client);
-            currentState = State.OPENING_RANSEL_DEPOSIT;
-            ranselTimeoutTicks = 60;
-            currentTaskType = TaskType.NEBANG;
-            targetBlockPos = blockToInteract;
-            targetYaw = yaw;
-            targetPitch = pitch;
-            return;
+            if (hasBackpack) {
+                client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Logs mencapai 18 stack! Menyimpan semua logs ke Ransel..."), false);
+                saveCurrentBotState(client);
+                openRanselCommand(client);
+                currentState = State.OPENING_RANSEL_DEPOSIT;
+                ranselTimeoutTicks = 60;
+                currentTaskType = TaskType.NEBANG;
+                targetBlockPos = blockToInteract;
+                targetYaw = yaw;
+                targetPitch = pitch;
+                return;
+            } else {
+                if (getEmptyInventorySlots(client) == 0) {
+                    client.player.displayClientMessage(Component.literal("§c[SylvaraBot] Inventory penuh & Backpack dimatikan! Berhenti farming."), false);
+                    stopTask();
+                    return;
+                }
+            }
         }
 
         isStaticProcessing = false;
@@ -404,24 +512,34 @@ public class AutoLumberjackController {
         } else if (taskType == TaskType.AUTO_CHAIN) {
             int plankCount = countMaterialInInventory(client, "PLANK");
             int logCount = countMaterialInInventory(client, "LOG");
-            if (plankCount >= 576 && craftBenchPos != null) {
-                targetBlockPos = craftBenchPos;
-                targetYaw = craftYaw;
-                targetPitch = craftPitch;
-            } else if (logCount > 0 && sawBenchPos != null) {
-                targetBlockPos = sawBenchPos;
-                targetYaw = sawYaw;
-                targetPitch = sawPitch;
-            } else if (plankCount > 0 && craftBenchPos != null) {
-                shouldDisconnectAfterCraft = true;
-                targetBlockPos = craftBenchPos;
-                targetYaw = craftYaw;
-                targetPitch = craftPitch;
+            if (autoChainMode == AutoChainMode.SAW_ONLY) {
+                if (logCount > 0 && sawBenchPos != null) {
+                    targetBlockPos = sawBenchPos; targetYaw = sawYaw; targetPitch = sawPitch;
+                }
+            } else if (autoChainMode == AutoChainMode.CRAFT_ONLY) {
+                if (plankCount >= 32 && craftBenchPos != null) {
+                    targetBlockPos = craftBenchPos; targetYaw = craftYaw; targetPitch = craftPitch;
+                }
+            } else {
+                if (plankCount >= 576 && craftBenchPos != null) {
+                    targetBlockPos = craftBenchPos;
+                    targetYaw = craftYaw;
+                    targetPitch = craftPitch;
+                } else if (logCount > 0 && sawBenchPos != null) {
+                    targetBlockPos = sawBenchPos;
+                    targetYaw = sawYaw;
+                    targetPitch = sawPitch;
+                } else if (plankCount > 0 && craftBenchPos != null) {
+                    shouldDisconnectAfterCraft = true;
+                    targetBlockPos = craftBenchPos;
+                    targetYaw = craftYaw;
+                    targetPitch = craftPitch;
+                }
             }
         }
 
         if (targetBlockPos == null) {
-            client.player.displayClientMessage(Component.literal("§c[SylvaraBot] Waypoint Bench belum diset!"), false);
+            client.player.displayClientMessage(Component.literal("§c[SylvaraBot] Waypoint Bench belum diset / mode tidak sesuai!"), false);
             isStaticProcessing = false;
             currentState = State.IDLE;
             return;
@@ -511,10 +629,14 @@ public class AutoLumberjackController {
         if (currentState == State.DRINKING) return;
         boolean hasDrink = selectOrSwapItem(client, AutoLumberjackController::isDrinkItem, 8);
         if (!hasDrink) {
-            openRanselCommand(client);
-            currentState = State.OPENING_RANSEL_DRINK_WITHDRAW;
-            ranselTimeoutTicks = 60;
-            return;
+            if (hasBackpack) {
+                openRanselCommand(client);
+                currentState = State.OPENING_RANSEL_DRINK_WITHDRAW;
+                ranselTimeoutTicks = 60;
+                return;
+            } else {
+                return;
+            }
         }
         ItemStack drinkStack = client.player.getInventory().getItem(8);
         if (client.player != null && client.screen != null) client.player.closeContainer();
@@ -530,10 +652,14 @@ public class AutoLumberjackController {
         if (currentState == State.EATING || currentState == State.DRINKING) return;
         boolean hasFood = selectOrSwapItem(client, AutoLumberjackController::isFoodItem, 7);
         if (!hasFood) {
-            openRanselCommand(client);
-            currentState = State.OPENING_RANSEL_FOOD_WITHDRAW;
-            ranselTimeoutTicks = 60;
-            return;
+            if (hasBackpack) {
+                openRanselCommand(client);
+                currentState = State.OPENING_RANSEL_FOOD_WITHDRAW;
+                ranselTimeoutTicks = 60;
+                return;
+            } else {
+                return;
+            }
         }
         ItemStack foodStack = client.player.getInventory().getItem(7);
         if (client.player != null && client.screen != null) client.player.closeContainer();
@@ -597,35 +723,77 @@ public class AutoLumberjackController {
             currentState = State.IDLE;
             MovementController.onTaskFinished();
         } else if (taskTypeBackup == TaskType.LOG_TO_PLANK) {
-            if (plankCount >= 576 && craftBenchPos != null) {
+            if (autoChainMode == AutoChainMode.SAW_ONLY) {
+                if (logCount > 0 && sawBenchPos != null) {
+                    startStaticProcessing(TaskType.LOG_TO_PLANK);
+                } else {
+                    if (hasBackpack) {
+                        saveCurrentBotState(client);
+                        openRanselCommand(client);
+                        currentState = State.OPENING_RANSEL_WITHDRAW;
+                        currentTaskType = TaskType.AUTO_CHAIN;
+                        ranselTimeoutTicks = 60;
+                    } else {
+                        currentState = State.IDLE;
+                    }
+                }
+                return;
+            }
+
+            if (plankCount >= 576 && craftBenchPos != null && autoChainMode == AutoChainMode.FULL_CHAIN) {
                 client.player.displayClientMessage(Component.literal("§6[SylvaraBot] Planks mencapai 9 stack! Beralih ke Craft Bench..."), false);
                 startStaticProcessing(TaskType.PLANK_TO_BOX);
             } else if (logCount > 0 && sawBenchPos != null) {
                 startStaticProcessing(TaskType.LOG_TO_PLANK);
             } else {
-                if (plankCount > 0 && craftBenchPos != null) {
+                if (plankCount > 0 && craftBenchPos != null && autoChainMode == AutoChainMode.FULL_CHAIN) {
                     shouldDisconnectAfterCraft = true;
                     startStaticProcessing(TaskType.PLANK_TO_BOX);
                 } else {
-                    saveCurrentBotState(client);
-                    openRanselCommand(client);
-                    currentState = State.OPENING_RANSEL_WITHDRAW;
-                    currentTaskType = TaskType.AUTO_CHAIN;
-                    ranselTimeoutTicks = 60;
+                    if (hasBackpack) {
+                        saveCurrentBotState(client);
+                        openRanselCommand(client);
+                        currentState = State.OPENING_RANSEL_WITHDRAW;
+                        currentTaskType = TaskType.AUTO_CHAIN;
+                        ranselTimeoutTicks = 60;
+                    } else {
+                        currentState = State.IDLE;
+                    }
                 }
             }
         } else if (taskTypeBackup == TaskType.PLANK_TO_BOX) {
+            if (autoChainMode == AutoChainMode.CRAFT_ONLY) {
+                if (plankCount >= 32 && craftBenchPos != null) {
+                    startStaticProcessing(TaskType.PLANK_TO_BOX);
+                } else {
+                    if (hasBackpack) {
+                        saveCurrentBotState(client);
+                        openRanselCommand(client);
+                        currentState = State.OPENING_RANSEL_WITHDRAW;
+                        currentTaskType = TaskType.AUTO_CHAIN;
+                        ranselTimeoutTicks = 60;
+                    } else {
+                        currentState = State.IDLE;
+                    }
+                }
+                return;
+            }
+
             if (plankCount >= 32 && craftBenchPos != null) {
                 startStaticProcessing(TaskType.PLANK_TO_BOX);
             } else {
                 if (logCount > 0 && sawBenchPos != null) {
                     startStaticProcessing(TaskType.LOG_TO_PLANK);
                 } else {
-                    saveCurrentBotState(client);
-                    openRanselCommand(client);
-                    currentState = State.OPENING_RANSEL_WITHDRAW;
-                    currentTaskType = TaskType.AUTO_CHAIN;
-                    ranselTimeoutTicks = 60;
+                    if (hasBackpack) {
+                        saveCurrentBotState(client);
+                        openRanselCommand(client);
+                        currentState = State.OPENING_RANSEL_WITHDRAW;
+                        currentTaskType = TaskType.AUTO_CHAIN;
+                        ranselTimeoutTicks = 60;
+                    } else {
+                        currentState = State.IDLE;
+                    }
                 }
             }
         } else if (taskTypeBackup == TaskType.AUTO_CHAIN) {
@@ -652,7 +820,8 @@ public class AutoLumberjackController {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.gameMode == null) return;
 
-            if (pausedByAdmin) {
+            // Anti-Staff Pause
+            if (antiStaffPauseEnabled && pausedByAdmin) {
                 if (isBotActive() || MovementController.isActive() || isStaticProcessing) {
                     MovementController.stop();
                     stopTask();
@@ -664,7 +833,8 @@ public class AutoLumberjackController {
                 }
             }
 
-            if (client.player.isDeadOrDying() || client.player.getHealth() <= 0.0F) {
+            // Safety Disconnect
+            if (safetyDisconnectEnabled && (client.player.isDeadOrDying() || client.player.getHealth() <= 0.0F)) {
                 disconnectServer(client, "Player Down / Knocked! Safety Disconnect Instan.");
                 return;
             }
@@ -709,7 +879,7 @@ public class AutoLumberjackController {
                 client.player.displayClientMessage(Component.literal(actionText), true);
             }
 
-            if ((isFarmingActive() || isStaticProcessing) && currentState != State.IDLE) {
+            if (safetyDisconnectEnabled && (isFarmingActive() || isStaticProcessing) && currentState != State.IDLE) {
                 if (client.player.getHealth() <= 10.0F) {
                     disconnectServer(client, "Darah di bawah 5 Bar! Safety Disconnect.");
                     return;
@@ -722,7 +892,7 @@ public class AutoLumberjackController {
                 return;
             }
 
-            if (currentState == State.OPENING_RANSEL_DEPOSIT) {
+            if (hasBackpack && currentState == State.OPENING_RANSEL_DEPOSIT) {
                 ranselTimeoutTicks--;
                 if (client.screen instanceof AbstractContainerScreen<?>) {
                     currentState = State.DEPOSITING_LOGS_TO_RANSEL;
@@ -734,8 +904,7 @@ public class AutoLumberjackController {
                 return;
             }
 
-            // Memasukkan SEMUA logs ke ransel sampai jumlah stack log di inventory habis (0)
-            if (currentState == State.DEPOSITING_LOGS_TO_RANSEL) {
+            if (hasBackpack && currentState == State.DEPOSITING_LOGS_TO_RANSEL) {
                 if (client.screen instanceof AbstractContainerScreen<?> containerScreen) {
                     int logStacks = countLogStacksInInventory(client);
                     if (logStacks == 0) {
@@ -751,7 +920,7 @@ public class AutoLumberjackController {
                         if (isLogItem(stack)) {
                             client.gameMode.handleInventoryMouseClick(containerScreen.getMenu().containerId, i, 0, ClickType.QUICK_MOVE, client.player);
                             movedAny = true;
-                            break; // Pindahkan 1 per tick sampai habis (0 stack log)
+                            break;
                         }
                     }
 
@@ -768,7 +937,7 @@ public class AutoLumberjackController {
                 return;
             }
 
-            if (currentState == State.OPENING_RANSEL_DRINK_WITHDRAW) {
+            if (hasBackpack && currentState == State.OPENING_RANSEL_DRINK_WITHDRAW) {
                 ranselTimeoutTicks--;
                 if (client.screen instanceof AbstractContainerScreen<?>) {
                     currentState = State.WITHDRAWING_DRINK_FROM_RANSEL;
@@ -777,7 +946,7 @@ public class AutoLumberjackController {
                 return;
             }
 
-            if (currentState == State.WITHDRAWING_DRINK_FROM_RANSEL) {
+            if (hasBackpack && currentState == State.WITHDRAWING_DRINK_FROM_RANSEL) {
                 if (client.screen instanceof AbstractContainerScreen<?> containerScreen) {
                     int containerSlots = containerScreen.getMenu().slots.size() - 36;
                     boolean movedAny = false;
@@ -796,7 +965,7 @@ public class AutoLumberjackController {
                 return;
             }
 
-            if (currentState == State.OPENING_RANSEL_FOOD_WITHDRAW) {
+            if (hasBackpack && currentState == State.OPENING_RANSEL_FOOD_WITHDRAW) {
                 ranselTimeoutTicks--;
                 if (client.screen instanceof AbstractContainerScreen<?>) {
                     currentState = State.WITHDRAWING_FOOD_FROM_RANSEL;
@@ -805,7 +974,7 @@ public class AutoLumberjackController {
                 return;
             }
 
-            if (currentState == State.WITHDRAWING_FOOD_FROM_RANSEL) {
+            if (hasBackpack && currentState == State.WITHDRAWING_FOOD_FROM_RANSEL) {
                 if (client.screen instanceof AbstractContainerScreen<?> containerScreen) {
                     int containerSlots = containerScreen.getMenu().slots.size() - 36;
                     boolean movedAny = false;
@@ -824,7 +993,7 @@ public class AutoLumberjackController {
                 return;
             }
 
-            if (currentState == State.OPENING_RANSEL_WITHDRAW) {
+            if (hasBackpack && currentState == State.OPENING_RANSEL_WITHDRAW) {
                 ranselTimeoutTicks--;
                 if (client.screen instanceof AbstractContainerScreen<?>) {
                     int initialEmptySlots = getEmptyInventorySlots(client);
@@ -836,7 +1005,7 @@ public class AutoLumberjackController {
                 return;
             }
 
-            if (currentState == State.WITHDRAWING_MATERIAL_FROM_RANSEL) {
+            if (hasBackpack && currentState == State.WITHDRAWING_MATERIAL_FROM_RANSEL) {
                 if (client.screen instanceof AbstractContainerScreen<?> containerScreen) {
                     if (withdrawnSoFarCount >= targetWithdrawCount) {
                         client.player.closeContainer();
@@ -922,11 +1091,16 @@ public class AutoLumberjackController {
 
                     if (isCraftingPhase) {
                         if (countMaterialInInventory(client, "PLANK") < 32) {
-                            saveCurrentBotState(client);
-                            openRanselCommand(client);
-                            currentState = State.OPENING_RANSEL_WITHDRAW;
-                            ranselTimeoutTicks = 60;
-                            return;
+                            if (hasBackpack) {
+                                saveCurrentBotState(client);
+                                openRanselCommand(client);
+                                currentState = State.OPENING_RANSEL_WITHDRAW;
+                                ranselTimeoutTicks = 60;
+                                return;
+                            } else {
+                                skipWaypoint("Planks kosong & Backpack mati!");
+                                return;
+                            }
                         }
                         if (!selectOrSwapItem(client, AutoLumberjackController::isPlankItem, 3)) {
                             skipWaypoint("Planks kosong!");
@@ -934,16 +1108,20 @@ public class AutoLumberjackController {
                         }
                     } else {
                         if (countMaterialInInventory(client, "LOG") < 18) {
-                            saveCurrentBotState(client);
-                            openRanselCommand(client);
-                            currentState = State.OPENING_RANSEL_WITHDRAW;
-                            ranselTimeoutTicks = 60;
-                            return;
+                            if (hasBackpack) {
+                                saveCurrentBotState(client);
+                                openRanselCommand(client);
+                                currentState = State.OPENING_RANSEL_WITHDRAW;
+                                ranselTimeoutTicks = 60;
+                                return;
+                            } else {
+                                skipWaypoint("Logs kurang & Backpack mati!");
+                                return;
+                            }
                         }
                         selectOrSwapItem(client, stack -> isLogItem(stack) || true, 1);
                     }
 
-                    // Diubah dari 0.60F ke 0.15F untuk fase bench/processing
                     float nextYaw = smoothAngle(client.player.getYRot(), targetYaw, 0.15F);
                     float nextPitch = smoothAngle(client.player.getXRot(), targetPitch, 0.15F);
                     client.player.setYRot(nextYaw);
@@ -1055,7 +1233,7 @@ public class AutoLumberjackController {
 
         String lowerChat = cleanChat.toLowerCase();
 
-        if (lowerChat.contains("down") || lowerChat.contains("knock") || lowerChat.contains("pingsan") || lowerChat.contains("tumbang")) {
+        if (safetyDisconnectEnabled && (lowerChat.contains("down") || lowerChat.contains("knock") || lowerChat.contains("pingsan") || lowerChat.contains("tumbang"))) {
             disconnectServer(client, "Player Down / Knocked terdeteksi dari chat! Disconnect instan.");
             return;
         }
@@ -1068,12 +1246,12 @@ public class AutoLumberjackController {
             return;
         }
 
-        if (lowerChat.contains("haus") || lowerChat.contains("air:")) {
-            if (autoDrinkEnabled && (isBotActive() || MovementController.isActive()) && !pausedByAdmin) startDrinking(client);
+        if (autoDrinkEnabled && (lowerChat.contains("haus") || lowerChat.contains("air:"))) {
+            if ((isBotActive() || MovementController.isActive()) && !pausedByAdmin) startDrinking(client);
             return;
         }
 
-        if (cleanChat.contains("is now on duty!")) {
+        if (antiStaffPauseEnabled && cleanChat.contains("is now on duty!")) {
             if (isBotActive() || MovementController.isActive() || isStaticProcessing) {
                 pausedByAdmin = true;
                 MovementController.stop();
@@ -1082,7 +1260,7 @@ public class AutoLumberjackController {
             return;
         }
 
-        if (cleanChat.contains("is now off duty!") || cleanChat.contains("is now offduty!")) {
+        if (antiStaffPauseEnabled && (cleanChat.contains("is now off duty!") || cleanChat.contains("is now offduty!"))) {
             pausedByAdmin = false;
             if (isStaticProcessing) startStaticProcessing(currentTaskType);
             else MovementController.startRoute(true, true);

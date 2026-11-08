@@ -38,7 +38,6 @@ public class SylvaraScreen extends Screen {
         int centerY = this.height / 2;
         rowHolders.clear();
 
-        // Layout Koordinat Grid Utama yang Lebih Luas & Rapi
         int leftX = centerX - 215;
         int rightX = centerX + 15;
         int panelWidth = 200;
@@ -64,14 +63,10 @@ public class SylvaraScreen extends Screen {
             this.onClose();
         }).bounds(leftX + 12, p1Y + 76, panelWidth - 24, 20).build());
 
-        // --- PANEL 2: BENCH WAYPOINTS (Kiri Bawah) ---
+        // --- PANEL 2: BENCH & SETTINGS (Kiri Bawah) ---
         int p2Y = topY + 105;
-        this.addRenderableWidget(Button.builder(Component.literal("Start Saw"), button -> {
-            MovementController.stop();
-            AutoLumberjackController.startStaticProcessing(TaskType.LOG_TO_PLANK);
-            this.onClose();
-        }).bounds(leftX + 12, p2Y + 28, 85, 20).build());
 
+        // Tombol Set Bench
         this.addRenderableWidget(Button.builder(Component.literal("Set Saw"), button -> {
             if (this.minecraft != null && this.minecraft.player != null) {
                 AutoLumberjackController.setSawBenchWaypoint(
@@ -80,13 +75,7 @@ public class SylvaraScreen extends Screen {
                         this.minecraft.player.getXRot()
                 );
             }
-        }).bounds(leftX + 103, p2Y + 28, 85, 20).build());
-
-        this.addRenderableWidget(Button.builder(Component.literal("Start Craft"), button -> {
-            MovementController.stop();
-            AutoLumberjackController.startStaticProcessing(TaskType.PLANK_TO_BOX);
-            this.onClose();
-        }).bounds(leftX + 12, p2Y + 52, 85, 20).build());
+        }).bounds(leftX + 12, p2Y + 28, 85, 18).build());
 
         this.addRenderableWidget(Button.builder(Component.literal("Set Craft"), button -> {
             if (this.minecraft != null && this.minecraft.player != null) {
@@ -96,19 +85,48 @@ public class SylvaraScreen extends Screen {
                         this.minecraft.player.getXRot()
                 );
             }
-        }).bounds(leftX + 103, p2Y + 52, 85, 20).build());
+        }).bounds(leftX + 103, p2Y + 28, 85, 18).build());
 
+        // Toggle Chain Mode (Full / Saw Only / Craft Only)
+        this.addRenderableWidget(Button.builder(Component.literal("Mode: §e" + AutoLumberjackController.getAutoChainMode().getName()), button -> {
+            AutoLumberjackController.AutoChainMode nextMode;
+            switch (AutoLumberjackController.getAutoChainMode()) {
+                case FULL_CHAIN: nextMode = AutoLumberjackController.AutoChainMode.SAW_ONLY; break;
+                case SAW_ONLY: nextMode = AutoLumberjackController.AutoChainMode.CRAFT_ONLY; break;
+                default: nextMode = AutoLumberjackController.AutoChainMode.FULL_CHAIN; break;
+            }
+            AutoLumberjackController.setAutoChainMode(nextMode);
+            button.setMessage(Component.literal("Mode: §e" + nextMode.getName()));
+        }).bounds(leftX + 12, p2Y + 49, 176, 18).build());
+
+        // Toggle Backpack (ON/OFF)
+        this.addRenderableWidget(Button.builder(Component.literal(AutoLumberjackController.isHasBackpack() ? "Backpack: §aON" : "Backpack: §cOFF"), button -> {
+            boolean next = !AutoLumberjackController.isHasBackpack();
+            AutoLumberjackController.setHasBackpack(next);
+            button.setMessage(Component.literal(next ? "Backpack: §aON" : "Backpack: §cOFF"));
+        }).bounds(leftX + 12, p2Y + 70, 85, 18).build());
+
+        // Toggle Auto Eat
         this.addRenderableWidget(Button.builder(Component.literal(AutoLumberjackController.isAutoEatEnabled() ? "Auto Eat: §aON" : "Auto Eat: §cOFF"), button -> {
             boolean next = !AutoLumberjackController.isAutoEatEnabled();
             AutoLumberjackController.setAutoEatEnabled(next);
             button.setMessage(Component.literal(next ? "Auto Eat: §aON" : "Auto Eat: §cOFF"));
-        }).bounds(leftX + 12, p2Y + 78, 85, 18).build());
+        }).bounds(leftX + 103, p2Y + 70, 85, 18).build());
 
+        // Toggle Auto Drink
         this.addRenderableWidget(Button.builder(Component.literal(AutoLumberjackController.isAutoDrinkEnabled() ? "Auto Drink: §aON" : "Auto Drink: §cOFF"), button -> {
             boolean next = !AutoLumberjackController.isAutoDrinkEnabled();
             AutoLumberjackController.setAutoDrinkEnabled(next);
             button.setMessage(Component.literal(next ? "Auto Drink: §aON" : "Auto Drink: §cOFF"));
-        }).bounds(leftX + 103, p2Y + 78, 85, 18).build());
+        }).bounds(leftX + 12, p2Y + 90, 85, 18).build());
+
+        // Toggle Staff Pause / Safety Disc
+        this.addRenderableWidget(Button.builder(Component.literal(AutoLumberjackController.isAntiStaffPauseEnabled() ? "Staff Pause: §aON" : "Staff Pause: §cOFF"), button -> {
+            boolean next = !AutoLumberjackController.isAntiStaffPauseEnabled();
+            AutoLumberjackController.setAntiStaffPauseEnabled(next);
+            button.setMessage(Component.literal(next ? "Staff Pause: §aON" : "Staff Pause: §cOFF"));
+        }).bounds(leftX + 103, p2Y + 90, 85, 18).build());
+
 
         // --- PANEL 3: WAYPOINT LIST (Kanan Full Tinggi) ---
         this.rightPanelY1 = topY;
