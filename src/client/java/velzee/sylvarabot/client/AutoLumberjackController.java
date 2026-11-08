@@ -42,6 +42,8 @@ public class AutoLumberjackController {
         EATING,
         OPENING_RANSEL_WITHDRAW,
         WITHDRAWING_MATERIAL_FROM_RANSEL,
+        OPENING_RANSEL_DEPOSIT,
+        DEPOSITING_LOGS_TO_RANSEL,
         OPENING_RANSEL_DRINK_WITHDRAW,
         WITHDRAWING_DRINK_FROM_RANSEL,
         OPENING_RANSEL_FOOD_WITHDRAW,
@@ -131,11 +133,13 @@ public class AutoLumberjackController {
 
     private static TaskType currentTaskType = TaskType.NEBANG;
     private static boolean isStaticProcessing = false;
+    private static boolean shouldDisconnectAfterCraft = false;
 
     private static int delayTicks = 0;
     private static int guiTimeoutTicks = 0;
     private static int retryCount = 0;
     private static int clicksDone = 0;
+    private static int liftedDisconnectTicks = 0;
 
     private static int consumptionTicks = 0;
     private static int initialItemCount = 0;
@@ -191,10 +195,12 @@ public class AutoLumberjackController {
         wasStaticBeforeConsuming = false;
         targetBlockPos = null;
         isStaticProcessing = false;
+        shouldDisconnectAfterCraft = false;
         delayTicks = 0;
         guiTimeoutTicks = 0;
         retryCount = 0;
         clicksDone = 0;
+        liftedDisconnectTicks = 0;
         consumptionTicks = 0;
         ranselTimeoutTicks = 0;
         targetWithdrawCount = 0;
@@ -261,18 +267,16 @@ public class AutoLumberjackController {
         return total;
     }
 
-    private static int countMaterialTotal(net.minecraft.client.Minecraft client) {
-        int total = countMaterialInInventory(client, "PLANK");
-        if (client.screen instanceof AbstractContainerScreen<?> containerScreen) {
-            int containerSlots = containerScreen.getMenu().slots.size() - 36;
-            for (int i = 0; i < containerSlots; i++) {
-                ItemStack stack = containerScreen.getMenu().slots.get(i).getItem();
-                if (isPlankItem(stack)) {
-                    total += stack.getCount();
-                }
+    private static int countLogStacksInInventory(net.minecraft.client.Minecraft client) {
+        if (client.player == null) return 0;
+        int stacks = 0;
+        for (int i = 0; i < 36; i++) {
+            ItemStack stack = client.player.getInventory().getItem(i);
+            if (isLogItem(stack)) {
+                stacks++;
             }
         }
-        return total;
+        return stacks;
     }
 
     public static void selectAxeSlot(net.minecraft.client.Minecraft client) {
@@ -301,18 +305,26 @@ public class AutoLumberjackController {
 
         if (plankCount >= 576 && craftBenchPos != null) {
             client.player.displayClientMessage(Component.literal("§6[SylvaraBot] Planks >= 9 stack! Menuju Craft Bench..."), false);
+            shouldDisconnectAfterCraft = false;
             startStaticProcessing(TaskType.PLANK_TO_BOX);
         } else if (logCount > 0 && sawBenchPos != null) {
-            client.player.displayClientMessage(Component.literal("§a[SylvaraBot] Planks < 9 stack. Memotong Log di Saw Bench sampai terkumpul 9 stack..."), false);
+            client.player.displayClientMessage(Component.literal("§a[SylvaraBot] Memotong Log di Saw Bench..."), false);
+            shouldDisconnectAfterCraft = false;
             startStaticProcessing(TaskType.LOG_TO_PLANK);
         } else {
-            client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Bahan kurang, mengambil dari ransel..."), false);
-            saveCurrentBotState(client);
-            openRanselCommand(client);
-            currentState = State.OPENING_RANSEL_WITHDRAW;
-            ranselTimeoutTicks = 60;
-            currentTaskType = TaskType.AUTO_CHAIN;
-            isStaticProcessing = true;
+            if (plankCount > 0 && craftBenchPos != null) {
+                client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Logs habis & Planks < 9 stack. Crafting sisa planks lalu Disconnect..."), false);
+                shouldDisconnectAfterCraft = true;
+                startStaticProcessing(TaskType.PLANK_TO_BOX);
+            } else {
+                client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Bahan kurang, mengambil dari ransel..."), false);
+                saveCurrentBotState(client);
+                openRanselCommand(client);
+                currentState = State.OPENING_RANSEL_WITHDRAW;
+                ranselTimeoutTicks = 60;
+                currentTaskType = TaskType.AUTO_CHAIN;
+                isStaticProcessing = true;
+            }
         }
     }
 
@@ -339,7 +351,22 @@ public class AutoLumberjackController {
     }
 
     public static void startTask(BlockPos blockToInteract, float yaw, float pitch, TaskType taskType) {
-        if (!activeStaffOnDuty.isEmpty() || currentState == State.DRINKING || currentState == State.EATING) return;
+        if (pausedByAdmin || currentState == State.DRINKING || currentState == State.EATING) return;
+
+        // Jika tugas nebang dan log di inventory sudah mencapai 18 stack atau lebih, simpan SEMUA log ke ransel
+        if (taskType == TaskType.NEBANG && countLogStacksInInventory(clientInstance()) >= 18) {
+            net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
+            client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Logs mencapai 18 stack! Menyimpan semua logs ke Ransel..."), false);
+            saveCurrentBotState(client);
+            openRanselCommand(client);
+            currentState = State.OPENING_RANSEL_DEPOSIT;
+            ranselTimeoutTicks = 60;
+            currentTaskType = TaskType.NEBANG;
+            targetBlockPos = blockToInteract;
+            targetYaw = yaw;
+            targetPitch = pitch;
+            return;
+        }
 
         isStaticProcessing = false;
         targetBlockPos = blockToInteract;
@@ -351,7 +378,12 @@ public class AutoLumberjackController {
         retryCount = 0;
         delayTicks = 0;
         guiTimeoutTicks = 0;
+        liftedDisconnectTicks = 0;
         afkTicksRemaining = 0;
+    }
+
+    private static net.minecraft.client.Minecraft clientInstance() {
+        return net.minecraft.client.Minecraft.getInstance();
     }
 
     public static void startStaticProcessing(TaskType taskType) {
@@ -371,14 +403,20 @@ public class AutoLumberjackController {
             targetPitch = craftPitch;
         } else if (taskType == TaskType.AUTO_CHAIN) {
             int plankCount = countMaterialInInventory(client, "PLANK");
+            int logCount = countMaterialInInventory(client, "LOG");
             if (plankCount >= 576 && craftBenchPos != null) {
                 targetBlockPos = craftBenchPos;
                 targetYaw = craftYaw;
                 targetPitch = craftPitch;
-            } else if (sawBenchPos != null) {
+            } else if (logCount > 0 && sawBenchPos != null) {
                 targetBlockPos = sawBenchPos;
                 targetYaw = sawYaw;
                 targetPitch = sawPitch;
+            } else if (plankCount > 0 && craftBenchPos != null) {
+                shouldDisconnectAfterCraft = true;
+                targetBlockPos = craftBenchPos;
+                targetYaw = craftYaw;
+                targetPitch = craftPitch;
             }
         }
 
@@ -393,6 +431,7 @@ public class AutoLumberjackController {
         retryCount = 0;
         delayTicks = 0;
         guiTimeoutTicks = 0;
+        liftedDisconnectTicks = 0;
         afkTicksRemaining = 0;
 
         double distanceSq = client.player.blockPosition().distSqr(targetBlockPos);
@@ -423,6 +462,7 @@ public class AutoLumberjackController {
         retryCount = 0;
         delayTicks = 0;
         guiTimeoutTicks = 0;
+        liftedDisconnectTicks = 0;
         net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
         if (client.options != null) {
             client.options.keyUse.setDown(false);
@@ -441,7 +481,7 @@ public class AutoLumberjackController {
         MovementController.stop();
         stopTask();
         if (client.getConnection() != null) {
-            client.getConnection().getConnection().disconnect(Component.literal("Connection lost"));
+            client.getConnection().getConnection().disconnect(Component.literal(reason));
         }
     }
 
@@ -516,6 +556,8 @@ public class AutoLumberjackController {
         delayTicks = 15;
         if (currentTaskType == TaskType.AUTO_CHAIN) {
             startAutoChainSmart();
+        } else if (currentTaskType == TaskType.NEBANG && targetBlockPos != null) {
+            startTask(targetBlockPos, targetYaw, targetPitch, TaskType.NEBANG);
         } else if (wasStaticBeforeConsuming) {
             wasStaticBeforeConsuming = false;
             wasWalkingBeforeConsuming = false;
@@ -543,32 +585,40 @@ public class AutoLumberjackController {
         TaskType taskTypeBackup = currentTaskType;
         stopTask();
 
+        if (shouldDisconnectAfterCraft) {
+            disconnectServer(client, "AutoChain selesai: Sisa planks telah dicraft (Logs habis).");
+            return;
+        }
+
         int plankCount = countMaterialInInventory(client, "PLANK");
         int logCount = countMaterialInInventory(client, "LOG");
 
         if (taskTypeBackup == TaskType.NEBANG) {
-            // Jika tugasnya adalah nebang pohon, lanjutkan ke waypoint rute berikutnya!
             currentState = State.IDLE;
             MovementController.onTaskFinished();
         } else if (taskTypeBackup == TaskType.LOG_TO_PLANK) {
             if (plankCount >= 576 && craftBenchPos != null) {
-                client.player.displayClientMessage(Component.literal("§6[SylvaraBot] Planks sudah mencapai 9 stack! Beralih ke Craft Bench..."), false);
+                client.player.displayClientMessage(Component.literal("§6[SylvaraBot] Planks mencapai 9 stack! Beralih ke Craft Bench..."), false);
                 startStaticProcessing(TaskType.PLANK_TO_BOX);
             } else if (logCount > 0 && sawBenchPos != null) {
                 startStaticProcessing(TaskType.LOG_TO_PLANK);
             } else {
-                saveCurrentBotState(client);
-                openRanselCommand(client);
-                currentState = State.OPENING_RANSEL_WITHDRAW;
-                currentTaskType = TaskType.LOG_TO_PLANK;
-                ranselTimeoutTicks = 60;
+                if (plankCount > 0 && craftBenchPos != null) {
+                    shouldDisconnectAfterCraft = true;
+                    startStaticProcessing(TaskType.PLANK_TO_BOX);
+                } else {
+                    saveCurrentBotState(client);
+                    openRanselCommand(client);
+                    currentState = State.OPENING_RANSEL_WITHDRAW;
+                    currentTaskType = TaskType.AUTO_CHAIN;
+                    ranselTimeoutTicks = 60;
+                }
             }
         } else if (taskTypeBackup == TaskType.PLANK_TO_BOX) {
             if (plankCount >= 32 && craftBenchPos != null) {
                 startStaticProcessing(TaskType.PLANK_TO_BOX);
             } else {
                 if (logCount > 0 && sawBenchPos != null) {
-                    client.player.displayClientMessage(Component.literal("§a[SylvaraBot] Planks habis dikerjakan. Kembali ke Saw Bench untuk potong log baru..."), false);
                     startStaticProcessing(TaskType.LOG_TO_PLANK);
                 } else {
                     saveCurrentBotState(client);
@@ -602,6 +652,37 @@ public class AutoLumberjackController {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.gameMode == null) return;
 
+            if (pausedByAdmin) {
+                if (isBotActive() || MovementController.isActive() || isStaticProcessing) {
+                    MovementController.stop();
+                    stopTask();
+                    stopPlayerMovement(client);
+                    client.player.displayClientMessage(Component.literal("§c[SylvaraBot] Staff On Duty Terdeteksi! Fitur & Pergerakan dijeda total."), true);
+                    return;
+                } else {
+                    pausedByAdmin = false;
+                }
+            }
+
+            if (client.player.isDeadOrDying() || client.player.getHealth() <= 0.0F) {
+                disconnectServer(client, "Player Down / Knocked! Safety Disconnect Instan.");
+                return;
+            }
+
+            if (isStaticProcessing && (currentState == State.WAITING_PROGRESS || currentState == State.SOLVING_NEBANG_GUI || currentState == State.SOLVING_MINIGAME_GUI)) {
+                if (client.player.isPassenger() || (currentState == State.WAITING_PROGRESS && client.screen == null)) {
+                    liftedDisconnectTicks++;
+                    if (liftedDisconnectTicks >= 100) {
+                        disconnectServer(client, "Karakter diangkat/terinterupsi orang lain! Disconnect 5 detik.");
+                        return;
+                    }
+                } else {
+                    liftedDisconnectTicks = 0;
+                }
+            } else {
+                liftedDisconnectTicks = 0;
+            }
+
             if (currentState != State.IDLE) {
                 String actionText = "§b[SylvaraBot] §fStatus: ";
                 switch (currentState) {
@@ -614,6 +695,8 @@ public class AutoLumberjackController {
                     case EATING: actionText += "§6Sedang Makan..."; break;
                     case OPENING_RANSEL_WITHDRAW:
                     case WITHDRAWING_MATERIAL_FROM_RANSEL: actionText += "§eMengambil Material dari Ransel..."; break;
+                    case OPENING_RANSEL_DEPOSIT:
+                    case DEPOSITING_LOGS_TO_RANSEL: actionText += "§eMemasukkan SEMUA Logs ke Ransel..."; break;
                     case AFK_TIMER: actionText += "§cAFK Selesai (Menunggu Timer)"; break;
                     default:
                         if (isStaticProcessing) {
@@ -636,6 +719,52 @@ public class AutoLumberjackController {
             if (currentState == State.AFK_TIMER) {
                 afkTicksRemaining--;
                 if (afkTicksRemaining <= 0) disconnectServer(client, "AFK 30 Menit!");
+                return;
+            }
+
+            if (currentState == State.OPENING_RANSEL_DEPOSIT) {
+                ranselTimeoutTicks--;
+                if (client.screen instanceof AbstractContainerScreen<?>) {
+                    currentState = State.DEPOSITING_LOGS_TO_RANSEL;
+                    delayTicks = 5;
+                } else if (ranselTimeoutTicks <= 0) {
+                    client.player.closeContainer();
+                    currentState = State.IDLE;
+                }
+                return;
+            }
+
+            // Memasukkan SEMUA logs ke ransel sampai jumlah stack log di inventory habis (0)
+            if (currentState == State.DEPOSITING_LOGS_TO_RANSEL) {
+                if (client.screen instanceof AbstractContainerScreen<?> containerScreen) {
+                    int logStacks = countLogStacksInInventory(client);
+                    if (logStacks == 0) {
+                        client.player.closeContainer();
+                        resumeBotOperationAfterRansel();
+                        return;
+                    }
+
+                    int containerSlots = containerScreen.getMenu().slots.size() - 36;
+                    boolean movedAny = false;
+                    for (int i = containerSlots; i < containerScreen.getMenu().slots.size(); i++) {
+                        ItemStack stack = containerScreen.getMenu().slots.get(i).getItem();
+                        if (isLogItem(stack)) {
+                            client.gameMode.handleInventoryMouseClick(containerScreen.getMenu().containerId, i, 0, ClickType.QUICK_MOVE, client.player);
+                            movedAny = true;
+                            break; // Pindahkan 1 per tick sampai habis (0 stack log)
+                        }
+                    }
+
+                    if (!movedAny) {
+                        client.player.closeContainer();
+                        resumeBotOperationAfterRansel();
+                    } else {
+                        delayTicks = 3;
+                    }
+                } else {
+                    client.player.closeContainer();
+                    resumeBotOperationAfterRansel();
+                }
                 return;
             }
 
@@ -759,14 +888,6 @@ public class AutoLumberjackController {
 
             if (autoEatEnabled && (isBotActive() || MovementController.isActive()) && !pausedByAdmin && client.player.getFoodData().getFoodLevel() <= 6 && currentState != State.EATING && currentState != State.DRINKING) {
                 startEating(client);
-                return;
-            }
-
-            if (pausedByAdmin) {
-                if (client.options != null) {
-                    client.options.keyUse.setDown(false);
-                    client.options.keyUp.setDown(false);
-                }
                 return;
             }
 
@@ -932,6 +1053,12 @@ public class AutoLumberjackController {
         if (cleanChat.contains("[SylvaraBot]")) return;
 
         String lowerChat = cleanChat.toLowerCase();
+
+        if (lowerChat.contains("down") || lowerChat.contains("knock") || lowerChat.contains("pingsan") || lowerChat.contains("tumbang")) {
+            disconnectServer(client, "Player Down / Knocked terdeteksi dari chat! Disconnect instan.");
+            return;
+        }
+
         if (lowerChat.contains("tunggu beberapa detik") || lowerChat.contains("agar kamu bisa menebang")) {
             if (isBotActive() || MovementController.isActive()) {
                 client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Pohon Cooldown! Melewati waypoint ini..."), false);
@@ -946,9 +1073,11 @@ public class AutoLumberjackController {
         }
 
         if (cleanChat.contains("is now on duty!")) {
-            pausedByAdmin = true;
-            MovementController.stop();
-            stopTask();
+            if (isBotActive() || MovementController.isActive() || isStaticProcessing) {
+                pausedByAdmin = true;
+                MovementController.stop();
+                stopTask();
+            }
             return;
         }
 

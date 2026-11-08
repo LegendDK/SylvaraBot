@@ -98,7 +98,6 @@ public class SylvaraScreen extends Screen {
             }
         }).bounds(leftX + 103, p2Y + 52, 85, 20).build());
 
-        // Tambahan Tombol Toggle Setting Makanan/Minuman di dalam Panel Bench (Biar Efisien & Rapi)
         this.addRenderableWidget(Button.builder(Component.literal(AutoLumberjackController.isAutoEatEnabled() ? "Auto Eat: §aON" : "Auto Eat: §cOFF"), button -> {
             boolean next = !AutoLumberjackController.isAutoEatEnabled();
             AutoLumberjackController.setAutoEatEnabled(next);
@@ -110,7 +109,6 @@ public class SylvaraScreen extends Screen {
             AutoLumberjackController.setAutoDrinkEnabled(next);
             button.setMessage(Component.literal(next ? "Auto Drink: §aON" : "Auto Drink: §cOFF"));
         }).bounds(leftX + 103, p2Y + 78, 85, 18).build());
-
 
         // --- PANEL 3: WAYPOINT LIST (Kanan Full Tinggi) ---
         this.rightPanelY1 = topY;
@@ -138,8 +136,32 @@ public class SylvaraScreen extends Screen {
             WaypointRowHolder holder = new WaypointRowHolder();
             holder.originalY = rowY;
 
+            // Tombol Naik (▲)
+            Button upBtn = Button.builder(Component.literal("▲"), button -> {
+                if (index > 0) {
+                    MovementController.moveUp(index);
+                    if (editingIndex == index) editingIndex = index - 1;
+                    else if (editingIndex == index - 1) editingIndex = index;
+                    this.rebuildWidgets();
+                }
+            }).bounds(rightContentX + 82, rowY - 1, 16, 18).build();
+            this.addRenderableWidget(upBtn);
+            holder.widgets.add(upBtn);
+
+            // Tombol Turun (▼)
+            Button downBtn = Button.builder(Component.literal("▼"), button -> {
+                if (index < waypoints.size() - 1) {
+                    MovementController.moveDown(index);
+                    if (editingIndex == index) editingIndex = index + 1;
+                    else if (editingIndex == index + 1) editingIndex = index;
+                    this.rebuildWidgets();
+                }
+            }).bounds(rightContentX + 100, rowY - 1, 16, 18).build();
+            this.addRenderableWidget(downBtn);
+            holder.widgets.add(downBtn);
+
             if (editingIndex == index) {
-                nameInputBox = new EditBox(this.font, rightContentX, rowY, 82, 16, Component.literal("Nama"));
+                nameInputBox = new EditBox(this.font, rightContentX, rowY, 78, 16, Component.literal("Nama"));
                 nameInputBox.setValue(wp.getName());
                 this.addRenderableWidget(nameInputBox);
                 holder.widgets.add(nameInputBox);
@@ -148,14 +170,14 @@ public class SylvaraScreen extends Screen {
                     MovementController.renameWaypoint(index, nameInputBox.getValue());
                     editingIndex = -1;
                     this.rebuildWidgets();
-                }).bounds(rightContentX + 85, rowY - 1, 24, 18).build();
+                }).bounds(rightContentX + 118, rowY - 1, 28, 18).build();
                 this.addRenderableWidget(okBtn);
                 holder.widgets.add(okBtn);
             } else {
                 Button renameBtn = Button.builder(Component.literal("Edit"), button -> {
                     editingIndex = index;
                     this.rebuildWidgets();
-                }).bounds(rightContentX + 96, rowY - 1, 34, 18).build();
+                }).bounds(rightContentX + 118, rowY - 1, 30, 18).build();
                 this.addRenderableWidget(renameBtn);
                 holder.widgets.add(renameBtn);
             }
@@ -164,7 +186,7 @@ public class SylvaraScreen extends Screen {
                 MovementController.removeWaypoint(index);
                 editingIndex = -1;
                 this.rebuildWidgets();
-            }).bounds(rightContentX + 133, rowY - 1, 18, 18).build();
+            }).bounds(rightContentX + 150, rowY - 1, 18, 18).build();
             this.addRenderableWidget(xBtn);
             holder.widgets.add(xBtn);
 
@@ -205,10 +227,8 @@ public class SylvaraScreen extends Screen {
         int centerX = this.width / 2;
         int centerY = this.height / 2;
 
-        // Background Gelap Transparan Bergaya Modern Minimalis
         guiGraphics.fill(0, 0, this.width, this.height, 0xBD090D16);
 
-        // Header Title & Logo
         int topY = centerY - 105;
         guiGraphics.blit(MOD_LOGO, centerX - 85, topY - 24, 0, 0, 18, 18, 18, 18);
         guiGraphics.drawString(this.font, "§lSylvara§bGUI §8| §7v1.0", centerX - 62, topY - 19, 0xFFFFFFFF, true);
@@ -217,12 +237,10 @@ public class SylvaraScreen extends Screen {
         int rightX = centerX + 15;
         int panelWidth = 200;
 
-        // Render Panel-Panel Utama dengan Border Halus
         drawModernCard(guiGraphics, leftX, topY, leftX + panelWidth, topY + 98, "Control Panel");
         drawModernCard(guiGraphics, leftX, topY + 105, leftX + panelWidth, topY + 205, "Bench & Survival Settings");
         drawModernCard(guiGraphics, rightX, topY, rightX + panelWidth, topY + 205, "Waypoint Management");
 
-        // Scissor Container untuk List Waypoint agar tidak keluar kotak
         int scissorY1 = topY + 48;
         int scissorY2 = topY + 198;
         guiGraphics.enableScissor(rightX + 6, scissorY1, rightX + panelWidth - 6, scissorY2);
@@ -234,7 +252,7 @@ public class SylvaraScreen extends Screen {
         for (int i = 0; i < waypoints.size(); i++) {
             if (editingIndex != i) {
                 String label = (i + 1) + ". " + waypoints.get(i).getName();
-                if (label.length() > 16) label = label.substring(0, 14) + "..";
+                if (label.length() > 11) label = label.substring(0, 9) + "..";
                 guiGraphics.drawString(this.font, label, rightContentX + 4, rowY + 4, 0xFFE2E8F0, true);
             }
             rowY += 22;
@@ -245,17 +263,11 @@ public class SylvaraScreen extends Screen {
     }
 
     private void drawModernCard(GuiGraphics g, int x1, int y1, int x2, int y2, String title) {
-        // Outer Shadow / Border tipis elegan
         g.fill(x1, y1, x2, y2, 0xFF1E293B);
-        // Inner Background Container
         g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF0F172A);
-        // Header Card Background
         g.fill(x1 + 1, y1 + 1, x2 - 1, y1 + 22, 0xFF1E293B);
-
-        // Garis pemisah tipis bawah header
         g.fill(x1 + 1, y1 + 22, x2 - 1, y1 + 23, 0xFF334155);
 
-        // Judul Card di tengah atas header card
         int titleWidth = this.font.width(title);
         int titleX = x1 + ((x2 - x1) - titleWidth) / 2;
         g.drawString(this.font, title, titleX, y1 + 7, 0xFF38BDF8, true);
