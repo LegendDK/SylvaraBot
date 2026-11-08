@@ -218,6 +218,8 @@ public class MovementController {
                     client.options.keySprint.setDown(false);
                     client.player.setSprinting(false);
 
+                    AutoLumberjackController.selectAxeSlot(client);
+
                     if (AutoLumberjackController.isStaticProcessingActive()) {
                         AutoLumberjackController.onBenchReached();
                     } else if (currentWaypointIndex >= 0 && currentWaypointIndex < waypoints.size()) {
@@ -258,36 +260,35 @@ public class MovementController {
             double dz = targetVec.z - playerPos.z;
 
             float wantedYaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90.0F;
+            float currentYaw = client.player.getYRot();
+            float currentPitch = client.player.getXRot();
 
-            // Cek apakah ada air tepat di depan jalur bot untuk persiapan melompat lurus
+            float smoothedYaw = currentYaw + (Mth.wrapDegrees(wantedYaw - currentYaw) * 0.30F);
+            float smoothedPitch = Mth.rotLerp(0.25F, currentPitch, 0.0F);
+
             BlockPos frontPos = client.player.blockPosition().relative(client.player.getDirection());
             boolean isWaterAhead = client.level.getBlockState(frontPos).getBlock() == net.minecraft.world.level.block.Blocks.WATER ||
                     client.level.getBlockState(frontPos.below()).getBlock() == net.minecraft.world.level.block.Blocks.WATER;
 
             if (client.player.isInWater() || client.player.isInLava()) {
-                // Jika terlanjur masuk air: berenang naik dan maju dengan lancar tanpa nyangkut
                 client.options.keyJump.setDown(true);
                 client.options.keyUp.setDown(true);
                 client.options.keySprint.setDown(true);
                 client.player.setSprinting(true);
-                client.player.setXRot(-25.0F); // Sedikit mendongak agar mulus keluar air ke daratan
 
-                float currentYaw = client.player.getYRot();
-                client.player.setYRot(currentYaw + (Mth.wrapDegrees(wantedYaw - currentYaw) * 0.45F));
+                client.player.setYRot(smoothedYaw);
+                client.player.setXRot(Mth.rotLerp(0.25F, currentPitch, -25.0F));
             } else if (isWaterAhead) {
-                // Jika di depan ada air: kunci arah lurus sempurna ke target node agar tidak belok/mleset saat mau melompat
-                client.player.setYRot(wantedYaw);
-                client.player.setXRot(Mth.rotLerp(0.2F, client.player.getXRot(), 0.0F));
+                client.player.setYRot(smoothedYaw);
+                client.player.setXRot(smoothedPitch);
 
                 client.options.keyUp.setDown(true);
                 client.options.keySprint.setDown(true);
                 client.player.setSprinting(true);
-                client.options.keyJump.setDown(true); // Sprint-jump kuat pas di tepi air
+                client.options.keyJump.setDown(true);
             } else {
-                // Pergerakan normal di daratan
-                float currentYaw = client.player.getYRot();
-                client.player.setYRot(currentYaw + (Mth.wrapDegrees(wantedYaw - currentYaw) * 0.45F));
-                client.player.setXRot(Mth.rotLerp(0.2F, client.player.getXRot(), 0.0F));
+                client.player.setYRot(smoothedYaw);
+                client.player.setXRot(smoothedPitch);
 
                 client.options.keyUp.setDown(true);
                 client.options.keySprint.setDown(true);

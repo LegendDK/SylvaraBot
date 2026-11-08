@@ -275,6 +275,21 @@ public class AutoLumberjackController {
         return total;
     }
 
+    public static void selectAxeSlot(net.minecraft.client.Minecraft client) {
+        if (client.player == null) return;
+
+        for (int i = 0; i < 9; i++) {
+            net.minecraft.world.item.ItemStack stack = client.player.getInventory().getItem(i);
+            String itemName = stack.getItem().getDescriptionId().toLowerCase();
+            if (itemName.contains("axe") || itemName.contains("kapak")) {
+                client.player.getInventory().setSelectedSlot(1);
+                return;
+            }
+        }
+
+        client.player.getInventory().setSelectedSlot(1);
+    }
+
     public static void startAutoChainSmart() {
         net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
         if (client.player == null) return;
