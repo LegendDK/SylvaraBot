@@ -209,9 +209,11 @@ public class MovementController {
 
             Vec3 playerPos = client.player.position();
 
+            // 1. Cek apakah sudah sampai di target akhir waypoint
             if (finalTarget != null) {
                 Vec3 finalTargetVec = new Vec3(finalTarget.getX() + 0.5, finalTarget.getY(), finalTarget.getZ() + 0.5);
-                if (playerPos.distanceToSqr(finalTargetVec) <= 1.25 || targetIndex >= currentPath.size()) {
+                // Radius toleransi diperbesar sedikit ke 2.25 agar tidak muter-muter pas di titik akhir
+                if (playerPos.distanceToSqr(finalTargetVec) <= 2.25 || targetIndex >= currentPath.size()) {
                     active = false;
                     client.options.keyUp.setDown(false);
                     client.options.keyJump.setDown(false);
@@ -232,10 +234,13 @@ public class MovementController {
 
             if (cooldownTicks > 0) cooldownTicks--;
 
+            // 2. Sistem Node Skipping / Lookahead:
+            // Jika bot sudah mendekati atau melewati node saat ini, otomatis lanjut ke node berikutnya di path
             while (targetIndex < currentPath.size() - 1) {
                 BlockPos nodePos = currentPath.get(targetIndex);
                 Vec3 nodeVec = new Vec3(nodePos.getX() + 0.5, nodePos.getY(), nodePos.getZ() + 0.5);
-                if (playerPos.distanceToSqr(nodeVec.x, playerPos.y, nodeVec.z) < 2.25) {
+                // Jika jarak ke node kurang dari 2 blok, atau node berada di belakang player, skip ke node depan
+                if (playerPos.distanceToSqr(nodeVec.x, playerPos.y, nodeVec.z) < 3.0) {
                     targetIndex++;
                     continue;
                 }
@@ -252,7 +257,8 @@ public class MovementController {
                 return;
             }
 
-            int lookIndex = Math.min(targetIndex + 1, currentPath.size() - 1);
+            // Ambil target node aktif saat ini
+            int lookIndex = Math.min(targetIndex, currentPath.size() - 1);
             BlockPos targetNode = currentPath.get(lookIndex);
             Vec3 targetVec = new Vec3(targetNode.getX() + 0.5, targetNode.getY(), targetNode.getZ() + 0.5);
 
@@ -263,33 +269,43 @@ public class MovementController {
             float currentYaw = client.player.getYRot();
             float currentPitch = client.player.getXRot();
 
-            float smoothedYaw = currentYaw + (Mth.wrapDegrees(wantedYaw - currentYaw) * 0.30F);
+            // Cegah muter-muter: Jika sudah sangat dekat dengan node tujuan (kurang dari 1.5 blok),
+            // kunci yaw agar tidak menghitung ulang sudut balik yang bikin pusing
+            double distToNode = playerPos.distanceToSqr(targetVec.x, playerPos.y, targetVec.z);
+            float smoothedYaw;
+            if (distToNode < 2.25) {
+                smoothedYaw = currentYaw; // Pertahankan arah hadap terakhir yang mulus
+            } else {
+                smoothedYaw = currentYaw + (Mth.wrapDegrees(wantedYaw - currentYaw) * 0.35F);
+            }
+
             float smoothedPitch = Mth.rotLerp(0.25F, currentPitch, 0.0F);
 
+            // Deteksi air untuk navigasi natural
             BlockPos frontPos = client.player.blockPosition().relative(client.player.getDirection());
             boolean isWaterAhead = client.level.getBlockState(frontPos).getBlock() == net.minecraft.world.level.block.Blocks.WATER ||
                     client.level.getBlockState(frontPos.below()).getBlock() == net.minecraft.world.level.block.Blocks.WATER;
 
             if (client.player.isInWater() || client.player.isInLava()) {
+                // Berenang keluar air dengan mulus
                 client.options.keyJump.setDown(true);
                 client.options.keyUp.setDown(true);
                 client.options.keySprint.setDown(true);
                 client.player.setSprinting(true);
-
                 client.player.setYRot(smoothedYaw);
-                client.player.setXRot(Mth.rotLerp(0.25F, currentPitch, -25.0F));
+                client.player.setXRot(Mth.rotLerp(0.25F, currentPitch, -20.0F));
             } else if (isWaterAhead) {
+                // Lompat lewati air secara natural
                 client.player.setYRot(smoothedYaw);
                 client.player.setXRot(smoothedPitch);
-
                 client.options.keyUp.setDown(true);
                 client.options.keySprint.setDown(true);
                 client.player.setSprinting(true);
                 client.options.keyJump.setDown(true);
             } else {
+                // Pergerakan normal di daratan
                 client.player.setYRot(smoothedYaw);
                 client.player.setXRot(smoothedPitch);
-
                 client.options.keyUp.setDown(true);
                 client.options.keySprint.setDown(true);
                 client.player.setSprinting(true);
