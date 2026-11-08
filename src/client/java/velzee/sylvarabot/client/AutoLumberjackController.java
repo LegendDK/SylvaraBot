@@ -670,7 +670,7 @@ public class AutoLumberjackController {
             }
 
             if (isStaticProcessing && (currentState == State.WAITING_PROGRESS || currentState == State.SOLVING_NEBANG_GUI || currentState == State.SOLVING_MINIGAME_GUI)) {
-                if (client.player.isPassenger() || (currentState == State.WAITING_PROGRESS && client.screen == null)) {
+                if (client.player.isPassenger() || client.player.getVehicle() != null) {
                     liftedDisconnectTicks++;
                     if (liftedDisconnectTicks >= 100) {
                         disconnectServer(client, "Karakter diangkat/terinterupsi orang lain! Disconnect 5 detik.");
@@ -902,8 +902,8 @@ public class AutoLumberjackController {
             switch (currentState) {
                 case ALIGNING_CAMERA:
                     if (currentTaskType == TaskType.NEBANG) {
-                        float nextYaw = smoothAngle(client.player.getYRot(), targetYaw, 0.60F);
-                        float nextPitch = smoothAngle(client.player.getXRot(), targetPitch, 0.60F);
+                        float nextYaw = smoothAngle(client.player.getYRot(), targetYaw, 0.15F);
+                        float nextPitch = smoothAngle(client.player.getXRot(), targetPitch, 0.15F);
                         client.player.setYRot(nextYaw);
                         client.player.setXRot(nextPitch);
 
@@ -943,8 +943,9 @@ public class AutoLumberjackController {
                         selectOrSwapItem(client, stack -> isLogItem(stack) || true, 1);
                     }
 
-                    float nextYaw = smoothAngle(client.player.getYRot(), targetYaw, 0.60F);
-                    float nextPitch = smoothAngle(client.player.getXRot(), targetPitch, 0.60F);
+                    // Diubah dari 0.60F ke 0.15F untuk fase bench/processing
+                    float nextYaw = smoothAngle(client.player.getYRot(), targetYaw, 0.15F);
+                    float nextPitch = smoothAngle(client.player.getXRot(), targetPitch, 0.15F);
                     client.player.setYRot(nextYaw);
                     client.player.setXRot(nextPitch);
 
