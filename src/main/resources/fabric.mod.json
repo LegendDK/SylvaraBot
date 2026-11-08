@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "sylvarabot",
+	"version": "${version}",
+	"name": "SylvaraBot",
+	"description": "Sylvara Client Bot Mod for Pathfinder & Auto Lumberjack/Crafting",
+	"authors": [
+		"Velzee"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/sylvarabot/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"velzee.sylvarabot.SylvaraBot"
+		],
+		"client": [
+			"velzee.sylvarabot.client.SylvaraBotClient"
+		]
+	},
+	"mixins": [
+		"sylvarabot.mixins.json",
+		{
+			"config": "sylvarabot.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.0",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
