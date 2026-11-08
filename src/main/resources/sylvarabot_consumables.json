@@ -1,0 +1,10 @@
+{
+  "foods": [
+    { "name": "Roasted Beef and Egg", "enabled": true },
+    { "name": "Roasted Chicken", "enabled": true }
+  ],
+  "drinks": [
+    { "name": "Matcha Milkshake", "enabled": true },
+    { "name": "Melon Juice", "enabled": true }
+  ]
+}

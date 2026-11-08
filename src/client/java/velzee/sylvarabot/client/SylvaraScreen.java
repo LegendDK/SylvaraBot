@@ -97,35 +97,14 @@ public class SylvaraScreen extends Screen {
             }
             AutoLumberjackController.setAutoChainMode(nextMode);
             button.setMessage(Component.literal("Mode: §e" + nextMode.getName()));
-        }).bounds(leftX + 12, p2Y + 49, 176, 18).build());
+        }).bounds(leftX + 12, p2Y + 52, 176, 20).build());
 
-        // Toggle Backpack (ON/OFF)
-        this.addRenderableWidget(Button.builder(Component.literal(AutoLumberjackController.isHasBackpack() ? "Backpack: §aON" : "Backpack: §cOFF"), button -> {
-            boolean next = !AutoLumberjackController.isHasBackpack();
-            AutoLumberjackController.setHasBackpack(next);
-            button.setMessage(Component.literal(next ? "Backpack: §aON" : "Backpack: §cOFF"));
-        }).bounds(leftX + 12, p2Y + 70, 85, 18).build());
-
-        // Toggle Auto Eat
-        this.addRenderableWidget(Button.builder(Component.literal(AutoLumberjackController.isAutoEatEnabled() ? "Auto Eat: §aON" : "Auto Eat: §cOFF"), button -> {
-            boolean next = !AutoLumberjackController.isAutoEatEnabled();
-            AutoLumberjackController.setAutoEatEnabled(next);
-            button.setMessage(Component.literal(next ? "Auto Eat: §aON" : "Auto Eat: §cOFF"));
-        }).bounds(leftX + 103, p2Y + 70, 85, 18).build());
-
-        // Toggle Auto Drink
-        this.addRenderableWidget(Button.builder(Component.literal(AutoLumberjackController.isAutoDrinkEnabled() ? "Auto Drink: §aON" : "Auto Drink: §cOFF"), button -> {
-            boolean next = !AutoLumberjackController.isAutoDrinkEnabled();
-            AutoLumberjackController.setAutoDrinkEnabled(next);
-            button.setMessage(Component.literal(next ? "Auto Drink: §aON" : "Auto Drink: §cOFF"));
-        }).bounds(leftX + 12, p2Y + 90, 85, 18).build());
-
-        // Toggle Staff Pause / Safety Disc
-        this.addRenderableWidget(Button.builder(Component.literal(AutoLumberjackController.isAntiStaffPauseEnabled() ? "Staff Pause: §aON" : "Staff Pause: §cOFF"), button -> {
-            boolean next = !AutoLumberjackController.isAntiStaffPauseEnabled();
-            AutoLumberjackController.setAntiStaffPauseEnabled(next);
-            button.setMessage(Component.literal(next ? "Staff Pause: §aON" : "Staff Pause: §cOFF"));
-        }).bounds(leftX + 103, p2Y + 90, 85, 18).build());
+        // Tombol untuk Membuka Container Pengaturan Makanan & Toggles Terpisah
+        this.addRenderableWidget(Button.builder(Component.literal("⚙ Atur Makanan & Toggles"), button -> {
+            if (this.minecraft != null) {
+                this.minecraft.setScreen(new SylvaraSettingsScreen(this));
+            }
+        }).bounds(leftX + 12, p2Y + 78, 176, 22).build());
 
 
         // --- PANEL 3: WAYPOINT LIST (Kanan Full Tinggi) ---
@@ -256,7 +235,7 @@ public class SylvaraScreen extends Screen {
         int panelWidth = 200;
 
         drawModernCard(guiGraphics, leftX, topY, leftX + panelWidth, topY + 98, "Control Panel");
-        drawModernCard(guiGraphics, leftX, topY + 105, leftX + panelWidth, topY + 205, "Bench & Survival Settings");
+        drawModernCard(guiGraphics, leftX, topY + 105, leftX + panelWidth, topY + 205, "Bench & Settings");
         drawModernCard(guiGraphics, rightX, topY, rightX + panelWidth, topY + 205, "Waypoint Management");
 
         int scissorY1 = topY + 48;

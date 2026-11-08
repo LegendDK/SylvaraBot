@@ -89,6 +89,88 @@ public class AutoLumberjackController {
             .resolve("sylvarabot_benches.json")
             .toFile();
 
+    private static final File CONSUMABLES_CONFIG_FILE = FabricLoader.getInstance()
+            .getConfigDir()
+            .resolve("sylvarabot_consumables.json")
+            .toFile();
+
+    public static class ConsumableItem {
+        public String name;
+        public boolean enabled;
+
+        public ConsumableItem(String name, boolean enabled) {
+            this.name = name;
+            this.enabled = enabled;
+        }
+    }
+
+    private static class ConsumablesConfigData {
+        List<ConsumableItem> foods = new java.util.ArrayList<>(List.of(
+                new ConsumableItem("Roasted Beef and Egg", true),
+                new ConsumableItem("Roasted Chicken", true)
+        ));
+        List<ConsumableItem> drinks = new java.util.ArrayList<>(List.of(
+                new ConsumableItem("Matcha Milkshake", true),
+                new ConsumableItem("Melon Juice", true)
+        ));
+    }
+
+    private static ConsumablesConfigData consumablesConfig = new ConsumablesConfigData();
+
+    public static void loadConsumablesConfig() {
+        if (!CONSUMABLES_CONFIG_FILE.exists()) {
+            try (var inputStream = AutoLumberjackController.class.getResourceAsStream("/sylvarabot_consumables.json")) {
+                if (inputStream != null) {
+                    java.nio.file.Files.copy(inputStream, CONSUMABLES_CONFIG_FILE.toPath());
+                } else {
+                    saveConsumablesConfig();
+                }
+            } catch (Exception e) {
+                saveConsumablesConfig();
+            }
+        }
+        try (FileReader reader = new FileReader(CONSUMABLES_CONFIG_FILE)) {
+            ConsumablesConfigData data = new Gson().fromJson(reader, ConsumablesConfigData.class);
+            if (data != null) {
+                if (data.foods != null) consumablesConfig.foods = data.foods;
+                if (data.drinks != null) consumablesConfig.drinks = data.drinks;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void saveConsumablesConfig() {
+        try (FileWriter writer = new FileWriter(CONSUMABLES_CONFIG_FILE)) {
+            new GsonBuilder().setPrettyPrinting().create().toJson(consumablesConfig, writer);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static List<ConsumableItem> getFoodList() { return consumablesConfig.foods; }
+    public static List<ConsumableItem> getDrinkList() { return consumablesConfig.drinks; }
+
+    public static void toggleFood(String name) {
+        for (ConsumableItem item : consumablesConfig.foods) {
+            if (item.name.equals(name)) {
+                item.enabled = !item.enabled;
+                saveConsumablesConfig();
+                break;
+            }
+        }
+    }
+
+    public static void toggleDrink(String name) {
+        for (ConsumableItem item : consumablesConfig.drinks) {
+            if (item.name.equals(name)) {
+                item.enabled = !item.enabled;
+                saveConsumablesConfig();
+                break;
+            }
+        }
+    }
+
     private static class BenchConfigData {
         int sawX, sawY, sawZ;
         float sawYaw, sawPitch;
@@ -292,14 +374,30 @@ public class AutoLumberjackController {
 
     public static boolean isDrinkItem(ItemStack stack) {
         if (stack.isEmpty()) return false;
+        String hoverName = stack.getHoverName().getString();
         String componentStr = stack.getComponents().toString();
-        return componentStr.contains("animation=DRINK") || componentStr.contains("10053.0") || stack.getHoverName().getString().toLowerCase().contains("matcha milkshake");
+
+        for (ConsumableItem drink : consumablesConfig.drinks) {
+            if (drink.enabled && hoverName.toLowerCase().contains(drink.name.toLowerCase())) {
+                return true;
+            }
+        }
+
+        return componentStr.contains("10053.0") || componentStr.contains("10055.0") || componentStr.contains("animation=DRINK");
     }
 
     public static boolean isFoodItem(ItemStack stack) {
         if (stack.isEmpty() || isDrinkItem(stack)) return false;
+        String hoverName = stack.getHoverName().getString();
         String componentStr = stack.getComponents().toString();
-        return componentStr.contains("animation=EAT") || componentStr.contains("10052.0") || stack.getHoverName().getString().toLowerCase().contains("roasted beef");
+
+        for (ConsumableItem food : consumablesConfig.foods) {
+            if (food.enabled && hoverName.toLowerCase().contains(food.name.toLowerCase())) {
+                return true;
+            }
+        }
+
+        return componentStr.contains("10052.0") || componentStr.contains("10054.0") || componentStr.contains("animation=EAT");
     }
 
     private static int countMaterialInInventory(net.minecraft.client.Minecraft client, String type) {
@@ -813,6 +911,7 @@ public class AutoLumberjackController {
 
     public static void registerEvents() {
         loadBenches();
+        loadConsumablesConfig();
 
         ClientReceiveMessageEvents.CHAT.register((message, signedMessage, sender, params, receptionTimestamp) -> handleServerChat(message.getString()));
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> handleServerChat(message.getString()));
