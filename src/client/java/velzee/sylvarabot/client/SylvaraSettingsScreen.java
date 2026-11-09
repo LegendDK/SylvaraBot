@@ -49,7 +49,7 @@ public class SylvaraSettingsScreen extends Screen {
         this.clearWidgets();
 
         // ==========================================
-        // KOTAK 1 (KIRI ATAS): GENERAL TOGGLES (Termasuk Auto Eat & Auto Drink)
+        // KOTAK 1 (KIRI ATAS): GENERAL TOGGLES
         // ==========================================
         int c1Y = topY + 28;
 
@@ -95,8 +95,9 @@ public class SylvaraSettingsScreen extends Screen {
 
         // ==========================================
         // KOTAK 2 (KIRI BAWAH): FOOD TOGGLES
+        // Geser posisi awal Y ke bawah kotak General Toggles (topY + 148)
         // ==========================================
-        int c2Y = topY + 156;
+        int c2Y = topY + 154;
         for (AutoLumberjackController.ConsumableItem food : AutoLumberjackController.getFoodList()) {
             Button foodBtn = Button.builder(Component.literal("Food: " + food.name + " " + (food.enabled ? "§aON" : "§cOFF")), button -> {
                 AutoLumberjackController.toggleFood(food.name);
@@ -123,8 +124,9 @@ public class SylvaraSettingsScreen extends Screen {
 
         // ==========================================
         // KOTAK 4 (KANAN BAWAH): ADVANCED SLIDERS
+        // Geser posisi awal Y ke bawah kotak Drink Toggles (topY + 148)
         // ==========================================
-        int c4Y = topY + 130;
+        int c4Y = topY + 154;
 
         double clickDelayProgress = (double)(AutoLumberjackController.getMinigameClickDelay() - 5) / 25.0;
         CustomSlider clickDelaySlider = new CustomSlider(rightX + 12, c4Y, panelWidth - 24, 18, clickDelayProgress, "Minigame Delay", " ticks", 5.0, 30.0, (Double val) -> {
@@ -150,9 +152,6 @@ public class SylvaraSettingsScreen extends Screen {
             this.addRenderableWidget(info.widget);
         }
 
-        // ==========================================
-        // TOMBOL KEMBALI DI TENGAH BAWAH
-        // ==========================================
         int btnWidth = 160;
         int btnHeight = 20;
         int btnX = centerX - (btnWidth / 2);
@@ -162,6 +161,35 @@ public class SylvaraSettingsScreen extends Screen {
             this.minecraft.setScreen(parentScreen);
         }).bounds(btnX, btnY, btnWidth, btnHeight).build();
         this.addRenderableWidget(this.backButton);
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        int centerX = this.width / 2;
+        int centerY = this.height / 2;
+
+        guiGraphics.fill(0, 0, this.width, this.height, 0xCE070A14);
+
+        int topY = centerY - 115;
+        int panelWidth = 210;
+        int leftX = centerX - 225;
+        int rightX = centerX + 15;
+
+        String modVersion = FabricLoader.getInstance()
+                .getModContainer("sylvarabot")
+                .map(container -> container.getMetadata().getVersion().getFriendlyString())
+                .orElse("1.0");
+
+        guiGraphics.drawString(this.font, "§lSylvara§bGUI §8| §7v" + modVersion, leftX, topY - 14, 0xFF94A3B8, false);
+
+        // Perbesar tinggi kotak atas menjadi 144 piksel, dan geser kotak bawah mulai dari topY + 148 hingga topY + 230
+        drawModernCard(guiGraphics, leftX, topY, leftX + panelWidth, topY + 144, "⚙ General Toggles");
+        drawModernCard(guiGraphics, leftX, topY + 148, leftX + panelWidth, topY + 230, "🍖 Food Toggles");
+
+        drawModernCard(guiGraphics, rightX, topY, rightX + panelWidth, topY + 144, "🥤 Drink Toggles");
+        drawModernCard(guiGraphics, rightX, topY + 148, rightX + panelWidth, topY + 230, "⚡ Advanced Sliders");
+
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private static class CustomSlider extends AbstractSliderButton {
@@ -202,34 +230,6 @@ public class SylvaraSettingsScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-    }
-
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        int centerX = this.width / 2;
-        int centerY = this.height / 2;
-
-        guiGraphics.fill(0, 0, this.width, this.height, 0xCE070A14);
-
-        int topY = centerY - 115;
-        int panelWidth = 210;
-        int leftX = centerX - 225;
-        int rightX = centerX + 15;
-
-        String modVersion = FabricLoader.getInstance()
-                .getModContainer("sylvarabot")
-                .map(container -> container.getMetadata().getVersion().getFriendlyString())
-                .orElse("1.0");
-
-        guiGraphics.drawString(this.font, "§lSylvara§bGUI §8| §7v" + modVersion, leftX, topY - 14, 0xFF94A3B8, false);
-
-        drawModernCard(guiGraphics, leftX, topY, leftX + panelWidth, topY + 130, "⚙ General Toggles");
-        drawModernCard(guiGraphics, leftX, topY + 136, leftX + panelWidth, topY + 230, "🍖 Food Toggles");
-
-        drawModernCard(guiGraphics, rightX, topY, rightX + panelWidth, topY + 130, "🥤 Drink Toggles");
-        drawModernCard(guiGraphics, rightX, topY + 136, rightX + panelWidth, topY + 230, "⚡ Advanced Sliders");
-
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawModernCard(GuiGraphics g, int x1, int y1, int x2, int y2, String title) {
