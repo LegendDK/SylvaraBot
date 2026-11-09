@@ -74,6 +74,11 @@ public class AutoLumberjackController {
     private static boolean safetyDisconnectEnabled = true;
     private static AutoChainMode autoChainMode = AutoChainMode.FULL_CHAIN;
 
+    // Parameter kustom dari Slider Settings
+    private static int minigameClickDelay = 10;
+    private static float cameraAlignSpeed = 0.15F;
+    private static int guiTimeoutLimit = 240;
+
     private static BlockPos targetBlockPos = null;
     private static float targetYaw = 0.0f;
     private static float targetPitch = 0.0f;
@@ -276,7 +281,7 @@ public class AutoLumberjackController {
     private static final Set<String> activeStaffOnDuty = new HashSet<>();
     private static boolean pausedByAdmin = false;
 
-    // Getter & Setter Toggles
+    // Getter & Setter Toggles & Sliders
     public static boolean isAutoEatEnabled() { return autoEatEnabled; }
     public static void setAutoEatEnabled(boolean enabled) { autoEatEnabled = enabled; saveBenches(); }
 
@@ -294,6 +299,15 @@ public class AutoLumberjackController {
 
     public static AutoChainMode getAutoChainMode() { return autoChainMode; }
     public static void setAutoChainMode(AutoChainMode mode) { autoChainMode = mode; saveBenches(); }
+
+    public static void setMinigameClickDelay(int delay) { minigameClickDelay = delay; }
+    public static int getMinigameClickDelay() { return minigameClickDelay; }
+
+    public static void setCameraAlignSpeed(float speed) { cameraAlignSpeed = speed; }
+    public static float getCameraAlignSpeed() { return cameraAlignSpeed; }
+
+    public static void setGuiTimeoutLimit(int limit) { guiTimeoutLimit = limit; }
+    public static int getGuiTimeoutLimit() { return guiTimeoutLimit; }
 
     public static State getCurrentState() { return currentState; }
     public static TaskType getCurrentTaskType() { return currentTaskType; }
@@ -1170,8 +1184,8 @@ public class AutoLumberjackController {
             switch (currentState) {
                 case ALIGNING_CAMERA:
                     if (currentTaskType == TaskType.NEBANG) {
-                        float nextYaw = smoothAngle(client.player.getYRot(), targetYaw, 0.15F);
-                        float nextPitch = smoothAngle(client.player.getXRot(), targetPitch, 0.15F);
+                        float nextYaw = smoothAngle(client.player.getYRot(), targetYaw, cameraAlignSpeed);
+                        float nextPitch = smoothAngle(client.player.getXRot(), targetPitch, cameraAlignSpeed);
                         client.player.setYRot(nextYaw);
                         client.player.setXRot(nextPitch);
 
@@ -1221,8 +1235,8 @@ public class AutoLumberjackController {
                         selectOrSwapItem(client, stack -> isLogItem(stack) || true, 1);
                     }
 
-                    float nextYaw = smoothAngle(client.player.getYRot(), targetYaw, 0.15F);
-                    float nextPitch = smoothAngle(client.player.getXRot(), targetPitch, 0.15F);
+                    float nextYaw = smoothAngle(client.player.getYRot(), targetYaw, cameraAlignSpeed);
+                    float nextPitch = smoothAngle(client.player.getXRot(), targetPitch, cameraAlignSpeed);
                     client.player.setYRot(nextYaw);
                     client.player.setXRot(nextPitch);
 
@@ -1250,8 +1264,8 @@ public class AutoLumberjackController {
                         if (client.options != null) client.options.keyUse.setDown(false);
                         currentState = State.SOLVING_NEBANG_GUI;
                         clicksDone = 0;
-                        guiTimeoutTicks = 240;
-                        delayTicks = 10 + random.nextInt(4);
+                        guiTimeoutTicks = guiTimeoutLimit;
+                        delayTicks = minigameClickDelay + random.nextInt(4);
                     }
                     break;
 
@@ -1268,8 +1282,8 @@ public class AutoLumberjackController {
                                 client.gameMode.handleInventoryMouseClick(containerScreen.getMenu().containerId, slot.index, 0, ClickType.PICKUP, client.player);
                                 currentState = State.SOLVING_MINIGAME_GUI;
                                 clicksDone = itemId.contains("lime_dye") ? 0 : 1;
-                                guiTimeoutTicks = 240;
-                                delayTicks = 10 + random.nextInt(4);
+                                guiTimeoutTicks = guiTimeoutLimit;
+                                delayTicks = minigameClickDelay + random.nextInt(4);
                                 foundStartItem = true;
                                 break;
                             }
@@ -1281,7 +1295,7 @@ public class AutoLumberjackController {
                 case SOLVING_MINIGAME_GUI:
                     if (clicksDone >= 3) {
                         currentState = State.WAITING_PROGRESS;
-                        guiTimeoutTicks = 360;
+                        guiTimeoutTicks = guiTimeoutLimit + 120;
                         delayTicks = 5;
                         break;
                     }
@@ -1294,15 +1308,15 @@ public class AutoLumberjackController {
                             if (BuiltInRegistries.ITEM.getKey(slot.getItem().getItem()).getPath().contains("lime_stained_glass_pane")) {
                                 client.gameMode.handleInventoryMouseClick(containerScreen.getMenu().containerId, slot.index, 0, ClickType.PICKUP, client.player);
                                 clicksDone++;
-                                guiTimeoutTicks = 240;
-                                delayTicks = 10 + random.nextInt(4);
+                                guiTimeoutTicks = guiTimeoutLimit;
+                                delayTicks = minigameClickDelay + random.nextInt(4);
                                 clickedInThisTick = true;
                                 break;
                             }
                         }
                         if (!clickedInThisTick) delayTicks = 3;
                     } else {
-                        if (clicksDone > 0) { currentState = State.WAITING_PROGRESS; guiTimeoutTicks = 360; }
+                        if (clicksDone > 0) { currentState = State.WAITING_PROGRESS; guiTimeoutTicks = guiTimeoutLimit + 120; }
                         else delayTicks = 3;
                     }
                     break;
