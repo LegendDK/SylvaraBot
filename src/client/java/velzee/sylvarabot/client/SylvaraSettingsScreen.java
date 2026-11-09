@@ -16,7 +16,19 @@ public class SylvaraSettingsScreen extends Screen {
     private final Screen parentScreen;
     private double scrollAmount = 0;
     private int panelY1, panelY2;
-    private final List<AbstractWidget> scrollableWidgets = new ArrayList<>();
+    private final List<GuiElementInfo> allElements = new ArrayList<>();
+    private Button backButton;
+
+    private static class GuiElementInfo {
+        final AbstractWidget widget;
+        final String categoryTitle;
+        int renderY;
+
+        public GuiElementInfo(AbstractWidget widget, String categoryTitle) {
+            this.widget = widget;
+            this.categoryTitle = categoryTitle;
+        }
+    }
 
     public SylvaraSettingsScreen(Screen parentScreen) {
         super(Component.literal("Sylvara Advanced Settings"));
@@ -29,113 +41,122 @@ public class SylvaraSettingsScreen extends Screen {
         int centerY = this.height / 2;
         int panelWidth = 260;
         int leftX = centerX - (panelWidth / 2);
-        int topY = centerY - 115;
+        int topY = centerY - 125;
 
-        this.panelY1 = topY + 28;
-        this.panelY2 = topY + 185;
-        scrollableWidgets.clear();
+        // Batas area scroll
+        this.panelY1 = topY + 22;
+        this.panelY2 = topY + 215;
+        allElements.clear();
+        this.clearWidgets();
 
-        int currentY = panelY1 + 8;
+        int trackingY = panelY1 + 10;
 
         // ==========================================
         // CONTAINER 1: GENERAL TOGGLES
         // ==========================================
+        trackingY += 16;
+
         Button backpackBtn = Button.builder(Component.literal(AutoLumberjackController.isHasBackpack() ? "Backpack: §aON" : "Backpack: §cOFF"), button -> {
             boolean next = !AutoLumberjackController.isHasBackpack();
             AutoLumberjackController.setHasBackpack(next);
             button.setMessage(Component.literal(next ? "Backpack: §aON" : "Backpack: §cOFF"));
-        }).bounds(leftX + 12, currentY, panelWidth - 24, 18).build();
-        this.addRenderableWidget(backpackBtn);
-        scrollableWidgets.add(backpackBtn);
-        currentY += 22;
+        }).bounds(leftX + 12, trackingY, panelWidth - 24, 18).build();
+        allElements.add(new GuiElementInfo(backpackBtn, "General Toggles"));
+        trackingY += 22;
 
         Button staffBtn = Button.builder(Component.literal(AutoLumberjackController.isAntiStaffPauseEnabled() ? "Staff Pause: §aON" : "Staff Pause: §cOFF"), button -> {
             boolean next = !AutoLumberjackController.isAntiStaffPauseEnabled();
             AutoLumberjackController.setAntiStaffPauseEnabled(next);
             button.setMessage(Component.literal(next ? "Staff Pause: §aON" : "Staff Pause: §cOFF"));
-        }).bounds(leftX + 12, currentY, panelWidth - 24, 18).build();
-        this.addRenderableWidget(staffBtn);
-        scrollableWidgets.add(staffBtn);
-        currentY += 22;
+        }).bounds(leftX + 12, trackingY, panelWidth - 24, 18).build();
+        allElements.add(new GuiElementInfo(staffBtn, "General Toggles"));
+        trackingY += 22;
 
         Button safetyBtn = Button.builder(Component.literal(AutoLumberjackController.isSafetyDisconnectEnabled() ? "Safety Disconnect: §aON" : "Safety Disconnect: §cOFF"), button -> {
             boolean next = !AutoLumberjackController.isSafetyDisconnectEnabled();
             AutoLumberjackController.setSafetyDisconnectEnabled(next);
             button.setMessage(Component.literal(next ? "Safety Disconnect: §aON" : "Safety Disconnect: §cOFF"));
-        }).bounds(leftX + 12, currentY, panelWidth - 24, 18).build();
-        this.addRenderableWidget(safetyBtn);
-        scrollableWidgets.add(safetyBtn);
-        currentY += 30;
+        }).bounds(leftX + 12, trackingY, panelWidth - 24, 18).build();
+        allElements.add(new GuiElementInfo(safetyBtn, "General Toggles"));
+        trackingY += 30;
 
 
         // ==========================================
-        // CONTAINER 2: FOODS & DRINKS (MULTI-SELECT)
+        // CONTAINER 2: FOOD ONLY
         // ==========================================
+        trackingY += 16;
         for (AutoLumberjackController.ConsumableItem food : AutoLumberjackController.getFoodList()) {
             Button foodBtn = Button.builder(Component.literal("Food: " + food.name + " " + (food.enabled ? "§aON" : "§cOFF")), button -> {
                 AutoLumberjackController.toggleFood(food.name);
                 button.setMessage(Component.literal("Food: " + food.name + " " + (food.enabled ? "§aON" : "§cOFF")));
-            }).bounds(leftX + 12, currentY, panelWidth - 24, 18).build();
-            this.addRenderableWidget(foodBtn);
-            scrollableWidgets.add(foodBtn);
-            currentY += 22;
+            }).bounds(leftX + 12, trackingY, panelWidth - 24, 18).build();
+            allElements.add(new GuiElementInfo(foodBtn, "Food Toggles"));
+            trackingY += 22;
         }
+        trackingY += 10;
 
+
+        // ==========================================
+        // CONTAINER 3: DRINK ONLY
+        // ==========================================
+        trackingY += 16;
         for (AutoLumberjackController.ConsumableItem drink : AutoLumberjackController.getDrinkList()) {
             Button drinkBtn = Button.builder(Component.literal("Drink: " + drink.name + " " + (drink.enabled ? "§aON" : "§cOFF")), button -> {
                 AutoLumberjackController.toggleDrink(drink.name);
                 button.setMessage(Component.literal("Drink: " + drink.name + " " + (drink.enabled ? "§aON" : "§cOFF")));
-            }).bounds(leftX + 12, currentY, panelWidth - 24, 18).build();
-            this.addRenderableWidget(drinkBtn);
-            scrollableWidgets.add(drinkBtn);
-            currentY += 22;
+            }).bounds(leftX + 12, trackingY, panelWidth - 24, 18).build();
+            allElements.add(new GuiElementInfo(drinkBtn, "Drink Toggles"));
+            trackingY += 22;
         }
-        currentY += 15;
+        trackingY += 10;
 
 
         // ==========================================
-        // CONTAINER 3: ADVANCED TIMERS & PRECISION (SLIDERS)
+        // CONTAINER 4: ADVANCED TIMERS & SLIDERS
         // ==========================================
+        trackingY += 16;
 
-        // 1. Minigame Click Delay Slider (Range: 5 - 30 ticks)
         double clickDelayProgress = (double)(AutoLumberjackController.getMinigameClickDelay() - 5) / 25.0;
-        CustomSlider clickDelaySlider = new CustomSlider(leftX + 12, currentY, panelWidth - 24, 18, clickDelayProgress, "Minigame Delay", " ticks", 5.0, 30.0, (Double val) -> {
+        CustomSlider clickDelaySlider = new CustomSlider(leftX + 12, trackingY, panelWidth - 24, 18, clickDelayProgress, "Minigame Delay", " ticks", 5.0, 30.0, (Double val) -> {
             AutoLumberjackController.setMinigameClickDelay(val.intValue());
         });
-        this.addRenderableWidget(clickDelaySlider);
-        scrollableWidgets.add(clickDelaySlider);
-        currentY += 22;
+        allElements.add(new GuiElementInfo(clickDelaySlider, "Advanced Precision Sliders"));
+        trackingY += 22;
 
-        // 2. Camera Align Speed Slider (Range: 0.05 - 0.50)
         double cameraSpeedProgress = (AutoLumberjackController.getCameraAlignSpeed() - 0.05f) / 0.45f;
-        CustomSlider cameraSpeedSlider = new CustomSlider(leftX + 12, currentY, panelWidth - 24, 18, cameraSpeedProgress, "Camera Speed", "", 0.05, 0.50, (Double val) -> {
+        CustomSlider cameraSpeedSlider = new CustomSlider(leftX + 12, trackingY, panelWidth - 24, 18, cameraSpeedProgress, "Camera Speed", "", 0.05, 0.50, (Double val) -> {
             AutoLumberjackController.setCameraAlignSpeed(val.floatValue());
         });
-        this.addRenderableWidget(cameraSpeedSlider);
-        scrollableWidgets.add(cameraSpeedSlider);
-        currentY += 22;
+        allElements.add(new GuiElementInfo(cameraSpeedSlider, "Advanced Precision Sliders"));
+        trackingY += 22;
 
-        // 3. GUI Timeout Limit Slider (Range: 100 - 500 ticks)
         double timeoutProgress = (double)(AutoLumberjackController.getGuiTimeoutLimit() - 100) / 400.0;
-        CustomSlider timeoutSlider = new CustomSlider(leftX + 12, currentY, panelWidth - 24, 18, timeoutProgress, "GUI Timeout", " ticks", 100.0, 500.0, (Double val) -> {
+        CustomSlider timeoutSlider = new CustomSlider(leftX + 12, trackingY, panelWidth - 24, 18, timeoutProgress, "GUI Timeout", " ticks", 100.0, 500.0, (Double val) -> {
             AutoLumberjackController.setGuiTimeoutLimit(val.intValue());
         });
-        this.addRenderableWidget(timeoutSlider);
-        scrollableWidgets.add(timeoutSlider);
-        currentY += 25;
+        allElements.add(new GuiElementInfo(timeoutSlider, "Advanced Precision Sliders"));
+        trackingY += 25;
 
+        for (GuiElementInfo info : allElements) {
+            this.addRenderableWidget(info.widget);
+        }
 
         // ==========================================
-        // TOMBOL KEMBALI (FIXED DI BAWAH)
+        // TOMBOL KEMBALI DI TENGAH BAWAH (ALA MINECRAFT)
         // ==========================================
-        this.addRenderableWidget(Button.builder(Component.literal("§c← Kembali ke Menu Utama"), button -> {
+        int btnWidth = 160; // Lebar tombol standar ala menu Minecraft
+        int btnHeight = 20;
+        int btnX = centerX - (btnWidth / 2);
+        int btnY = topY + 222;
+
+        this.backButton = Button.builder(Component.literal("§cKembali ke Menu Utama"), button -> {
             this.minecraft.setScreen(parentScreen);
-        }).bounds(leftX + 12, topY + 192, panelWidth - 24, 20).build());
+        }).bounds(btnX, btnY, btnWidth, btnHeight).build();
+        this.addRenderableWidget(this.backButton);
 
         updateScrollPositions();
     }
 
-    // --- KELAS KUSTOM SLIDER ALA MINECRAFT 1.21.1 ---
     private static class CustomSlider extends AbstractSliderButton {
         private final String label;
         private final String unit;
@@ -173,8 +194,8 @@ public class SylvaraSettingsScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        int totalHeight = scrollableWidgets.size() * 24;
-        double maxScroll = Math.max(0, totalHeight - 130);
+        int totalHeight = allElements.size() * 24 + 140;
+        double maxScroll = Math.max(0, totalHeight - 160);
         if (maxScroll > 0) {
             this.scrollAmount = Mth.clamp(this.scrollAmount - (scrollY * 14.0), 0, maxScroll);
             updateScrollPositions();
@@ -184,15 +205,28 @@ public class SylvaraSettingsScreen extends Screen {
     }
 
     private void updateScrollPositions() {
-        int baseY = panelY1 + 5;
+        int baseY = panelY1 + 18;
         int index = 0;
-        for (AbstractWidget widget : scrollableWidgets) {
+        String lastCategory = "";
+
+        for (GuiElementInfo info : allElements) {
+            if (!info.categoryTitle.equals(lastCategory)) {
+                if (index > 0) baseY += 24;
+                lastCategory = info.categoryTitle;
+            }
+
             int targetY = baseY + (index * 24) - (int) this.scrollAmount;
-            boolean isVisible = (targetY >= panelY1 && targetY <= panelY2 - 18);
-            widget.visible = isVisible;
-            widget.active = isVisible;
-            widget.setY(targetY);
+            boolean isVisible = (targetY >= panelY1 && targetY <= panelY2 - 16);
+            info.widget.visible = isVisible;
+            info.widget.active = isVisible;
+            info.widget.setY(targetY);
+            info.renderY = targetY;
             index++;
+        }
+
+        if (this.backButton != null) {
+            this.backButton.visible = true;
+            this.backButton.active = true;
         }
     }
 
@@ -205,23 +239,44 @@ public class SylvaraSettingsScreen extends Screen {
 
         int panelWidth = 260;
         int leftX = centerX - (panelWidth / 2);
-        int topY = centerY - 115;
+        int topY = centerY - 125;
 
-        drawModernCard(guiGraphics, leftX, topY, leftX + panelWidth, topY + 220, "⚙ Konfigurasi Lanjutan & Toggles");
+        // Render Panel Utama
+        guiGraphics.fill(leftX, topY, leftX + panelWidth, topY + 250, 0xFF0F172A);
+        guiGraphics.renderOutline(leftX, topY, panelWidth, 250, 0xFF334155);
 
-        guiGraphics.enableScissor(leftX + 6, panelY1, leftX + panelWidth - 6, panelY2);
+        // Render Header Judul Utama
+        guiGraphics.drawString(this.font, "§b⚙ Konfigurasi Lanjutan & Toggles", leftX + 14, topY + 8, 0xFF38BDF8, true);
+
+        // Render Card Container Terpisah
+        guiGraphics.enableScissor(leftX + 4, panelY1, leftX + panelWidth - 4, panelY2);
+
+        String currentCat = "";
+        int cardStartY = 0;
+        for (int i = 0; i < allElements.size(); i++) {
+            GuiElementInfo info = allElements.get(i);
+            if (!info.categoryTitle.equals(currentCat)) {
+                if (!currentCat.isEmpty()) {
+                    drawCardBox(guiGraphics, leftX + 6, cardStartY - 16, leftX + panelWidth - 6, allElements.get(i - 1).renderY + 20, currentCat);
+                }
+                currentCat = info.categoryTitle;
+                cardStartY = info.renderY;
+            }
+            if (i == allElements.size() - 1) {
+                drawCardBox(guiGraphics, leftX + 6, cardStartY - 16, leftX + panelWidth - 6, info.renderY + 20, currentCat);
+            }
+        }
+
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.disableScissor();
+
+        // Render ulang tombol kembali di luar scissor agar selalu tampil jelas di tengah bawah
+        this.backButton.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    private void drawModernCard(GuiGraphics g, int x1, int y1, int x2, int y2, String title) {
+    private void drawCardBox(GuiGraphics g, int x1, int y1, int x2, int y2, String title) {
         g.fill(x1, y1, x2, y2, 0xFF1E293B);
-        g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF0F172A);
-        g.fill(x1 + 1, y1 + 1, x2 - 1, y1 + 24, 0xFF1E293B);
-        g.fill(x1 + 1, y1 + 24, x2 - 1, y1 + 25, 0xFF334155);
-
-        int titleWidth = this.font.width(title);
-        int titleX = x1 + ((x2 - x1) - titleWidth) / 2;
-        g.drawString(this.font, title, titleX, y1 + 8, 0xFF38BDF8, true);
+        g.renderOutline(x1, y1, x2 - x1, y2 - y1, 0xFF475569);
+        g.drawString(this.font, "§b" + title, x1 + 8, y1 + 4, 0xFF38BDF8, false);
     }
 }

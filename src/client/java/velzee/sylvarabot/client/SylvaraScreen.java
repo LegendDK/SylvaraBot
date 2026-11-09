@@ -8,6 +8,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
+import net.fabricmc.loader.api.FabricLoader;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -216,6 +217,11 @@ public class SylvaraScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        String modVersion = FabricLoader.getInstance()
+                .getModContainer("sylvarabot") // Ganti dengan modid di fabric.mod.json kamu jika berbeda
+                .map(container -> container.getMetadata().getVersion().getFriendlyString())
+                .orElse("1.0");
+
         int centerX = this.width / 2;
         int centerY = this.height / 2;
 
@@ -223,7 +229,8 @@ public class SylvaraScreen extends Screen {
 
         int topY = centerY - 115;
         guiGraphics.blit(MOD_LOGO, centerX - 92, topY - 24, 0, 0, 18, 18, 18, 18);
-        guiGraphics.drawString(this.font, "§lSylvara§bGUI §8| §7v1.0", centerX - 68, topY - 19, 0xFFFFFFFF, true);
+        int versionWidth = this.font.width("§lSylvara§bGUI §8| §7v" + modVersion);
+        guiGraphics.drawString(this.font, "§lSylvara§bGUI §8| §7v" + modVersion, centerX - (versionWidth / 2), topY + 10, 0xFF94A3B8, false);
 
         int leftX = centerX - 225;
         int rightX = centerX + 15;
