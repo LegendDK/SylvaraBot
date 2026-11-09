@@ -18,6 +18,7 @@ public class SylvaraSettingsScreen extends Screen {
     private double scrollAmount = 0;
     private final List<GuiElementInfo> allElements = new ArrayList<>();
     private Button backButton;
+    private Button resetDefaultButton;
 
     private static class GuiElementInfo {
         final AbstractWidget widget;
@@ -95,9 +96,8 @@ public class SylvaraSettingsScreen extends Screen {
 
         // ==========================================
         // KOTAK 2 (KIRI BAWAH): FOOD TOGGLES
-        // Geser posisi awal Y ke bawah kotak General Toggles (topY + 148)
         // ==========================================
-        int c2Y = topY + 154;
+        int c2Y = topY + 172;
         for (AutoLumberjackController.ConsumableItem food : AutoLumberjackController.getFoodList()) {
             Button foodBtn = Button.builder(Component.literal("Food: " + food.name + " " + (food.enabled ? "§aON" : "§cOFF")), button -> {
                 AutoLumberjackController.toggleFood(food.name);
@@ -124,9 +124,8 @@ public class SylvaraSettingsScreen extends Screen {
 
         // ==========================================
         // KOTAK 4 (KANAN BAWAH): ADVANCED SLIDERS
-        // Geser posisi awal Y ke bawah kotak Drink Toggles (topY + 148)
         // ==========================================
-        int c4Y = topY + 154;
+        int c4Y = topY + 164;
 
         double clickDelayProgress = (double)(AutoLumberjackController.getMinigameClickDelay() - 5) / 25.0;
         CustomSlider clickDelaySlider = new CustomSlider(rightX + 12, c4Y, panelWidth - 24, 18, clickDelayProgress, "Minigame Delay", " ticks", 5.0, 30.0, (Double val) -> {
@@ -152,15 +151,21 @@ public class SylvaraSettingsScreen extends Screen {
             this.addRenderableWidget(info.widget);
         }
 
-        int btnWidth = 160;
+        // Tombol Kembali & Tombol Reset to Default di Bawah
+        int btnWidth = 100;
         int btnHeight = 20;
-        int btnX = centerX - (btnWidth / 2);
         int btnY = topY + 236;
 
-        this.backButton = Button.builder(Component.literal("§cKembali ke Menu Utama"), button -> {
+        this.backButton = Button.builder(Component.literal("§cKembali"), button -> {
             this.minecraft.setScreen(parentScreen);
-        }).bounds(btnX, btnY, btnWidth, btnHeight).build();
+        }).bounds(centerX - 105, btnY, btnWidth, btnHeight).build();
         this.addRenderableWidget(this.backButton);
+
+        this.resetDefaultButton = Button.builder(Component.literal("§e↺ Reset Default"), button -> {
+            AutoLumberjackController.resetSettingsToDefault();
+            this.init(); // Refresh GUI kembali ke nilai default
+        }).bounds(centerX + 5, btnY, btnWidth, btnHeight).build();
+        this.addRenderableWidget(this.resetDefaultButton);
     }
 
     @Override
@@ -182,7 +187,6 @@ public class SylvaraSettingsScreen extends Screen {
 
         guiGraphics.drawString(this.font, "§lSylvara§bGUI §8| §7v" + modVersion, leftX, topY - 14, 0xFF94A3B8, false);
 
-        // Perbesar tinggi kotak atas menjadi 144 piksel, dan geser kotak bawah mulai dari topY + 148 hingga topY + 230
         drawModernCard(guiGraphics, leftX, topY, leftX + panelWidth, topY + 144, "⚙ General Toggles");
         drawModernCard(guiGraphics, leftX, topY + 148, leftX + panelWidth, topY + 230, "🍖 Food Toggles");
 

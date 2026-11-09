@@ -99,6 +99,85 @@ public class AutoLumberjackController {
             .resolve("sylvarabot_consumables.json")
             .toFile();
 
+    // File Konfigurasi Khusus Settings agar tersimpan permanen
+    private static final File SETTINGS_CONFIG_FILE = FabricLoader.getInstance()
+            .getConfigDir()
+            .resolve("sylvarabot_settings.json")
+            .toFile();
+
+    private static class SettingsConfigData {
+        boolean autoEatEnabled = true;
+        boolean autoDrinkEnabled = true;
+        boolean hasBackpack = true;
+        boolean antiStaffPauseEnabled = true;
+        boolean safetyDisconnectEnabled = true;
+        String autoChainMode = "FULL_CHAIN";
+        int minigameClickDelay = 10;
+        float cameraAlignSpeed = 0.15F;
+        int guiTimeoutLimit = 240;
+    }
+
+    public static void saveSettingsConfig() {
+        try {
+            SettingsConfigData data = new SettingsConfigData();
+            data.autoEatEnabled = autoEatEnabled;
+            data.autoDrinkEnabled = autoDrinkEnabled;
+            data.hasBackpack = hasBackpack;
+            data.antiStaffPauseEnabled = antiStaffPauseEnabled;
+            data.safetyDisconnectEnabled = safetyDisconnectEnabled;
+            data.autoChainMode = autoChainMode.name();
+            data.minigameClickDelay = minigameClickDelay;
+            data.cameraAlignSpeed = cameraAlignSpeed;
+            data.guiTimeoutLimit = guiTimeoutLimit;
+
+            try (FileWriter writer = new FileWriter(SETTINGS_CONFIG_FILE)) {
+                new GsonBuilder().setPrettyPrinting().create().toJson(data, writer);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void loadSettingsConfig() {
+        if (!SETTINGS_CONFIG_FILE.exists()) {
+            saveSettingsConfig();
+            return;
+        }
+        try (FileReader reader = new FileReader(SETTINGS_CONFIG_FILE)) {
+            SettingsConfigData data = new Gson().fromJson(reader, SettingsConfigData.class);
+            if (data != null) {
+                autoEatEnabled = data.autoEatEnabled;
+                autoDrinkEnabled = data.autoDrinkEnabled;
+                hasBackpack = data.hasBackpack;
+                antiStaffPauseEnabled = data.antiStaffPauseEnabled;
+                safetyDisconnectEnabled = data.safetyDisconnectEnabled;
+                minigameClickDelay = data.minigameClickDelay;
+                cameraAlignSpeed = data.cameraAlignSpeed;
+                guiTimeoutLimit = data.guiTimeoutLimit;
+                try {
+                    autoChainMode = AutoChainMode.valueOf(data.autoChainMode);
+                } catch (Exception ignored) {
+                    autoChainMode = AutoChainMode.FULL_CHAIN;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void resetSettingsToDefault() {
+        autoEatEnabled = true;
+        autoDrinkEnabled = true;
+        hasBackpack = true;
+        antiStaffPauseEnabled = true;
+        safetyDisconnectEnabled = true;
+        autoChainMode = AutoChainMode.FULL_CHAIN;
+        minigameClickDelay = 10;
+        cameraAlignSpeed = 0.15F;
+        guiTimeoutLimit = 240;
+        saveSettingsConfig();
+    }
+
     public static class ConsumableItem {
         public String name;
         public boolean enabled;
@@ -183,12 +262,6 @@ public class AutoLumberjackController {
         int craftX, craftY, craftZ;
         float craftYaw, craftPitch;
         boolean hasCraft;
-        boolean hasBackpack = true;
-        boolean autoEatEnabled = true;
-        boolean autoDrinkEnabled = true;
-        boolean antiStaffPauseEnabled = true;
-        boolean safetyDisconnectEnabled = true;
-        String autoChainMode = "FULL_CHAIN";
     }
 
     public static void saveBenches() {
@@ -210,12 +283,6 @@ public class AutoLumberjackController {
                 data.craftPitch = craftPitch;
                 data.hasCraft = true;
             }
-            data.hasBackpack = hasBackpack;
-            data.autoEatEnabled = autoEatEnabled;
-            data.autoDrinkEnabled = autoDrinkEnabled;
-            data.antiStaffPauseEnabled = antiStaffPauseEnabled;
-            data.safetyDisconnectEnabled = safetyDisconnectEnabled;
-            data.autoChainMode = autoChainMode.name();
 
             try (FileWriter writer = new FileWriter(BENCH_CONFIG_FILE)) {
                 new GsonBuilder().setPrettyPrinting().create().toJson(data, writer);
@@ -239,16 +306,6 @@ public class AutoLumberjackController {
                     craftBenchPos = new BlockPos(data.craftX, data.craftY, data.craftZ);
                     craftYaw = data.craftYaw;
                     craftPitch = data.craftPitch;
-                }
-                hasBackpack = data.hasBackpack;
-                autoEatEnabled = data.autoEatEnabled;
-                autoDrinkEnabled = data.autoDrinkEnabled;
-                antiStaffPauseEnabled = data.antiStaffPauseEnabled;
-                safetyDisconnectEnabled = data.safetyDisconnectEnabled;
-                try {
-                    autoChainMode = AutoChainMode.valueOf(data.autoChainMode);
-                } catch (Exception ignored) {
-                    autoChainMode = AutoChainMode.FULL_CHAIN;
                 }
             }
         } catch (Exception e) {
@@ -282,30 +339,30 @@ public class AutoLumberjackController {
     private static boolean pausedByAdmin = false;
 
     public static boolean isAutoEatEnabled() { return autoEatEnabled; }
-    public static void setAutoEatEnabled(boolean enabled) { autoEatEnabled = enabled; saveBenches(); }
+    public static void setAutoEatEnabled(boolean enabled) { autoEatEnabled = enabled; saveSettingsConfig(); }
 
     public static boolean isAutoDrinkEnabled() { return autoDrinkEnabled; }
-    public static void setAutoDrinkEnabled(boolean enabled) { autoDrinkEnabled = enabled; saveBenches(); }
+    public static void setAutoDrinkEnabled(boolean enabled) { autoDrinkEnabled = enabled; saveSettingsConfig(); }
 
     public static boolean isHasBackpack() { return hasBackpack; }
-    public static void setHasBackpack(boolean backpack) { hasBackpack = backpack; saveBenches(); }
+    public static void setHasBackpack(boolean backpack) { hasBackpack = backpack; saveSettingsConfig(); }
 
     public static boolean isAntiStaffPauseEnabled() { return antiStaffPauseEnabled; }
-    public static void setAntiStaffPauseEnabled(boolean enabled) { antiStaffPauseEnabled = enabled; saveBenches(); }
+    public static void setAntiStaffPauseEnabled(boolean enabled) { antiStaffPauseEnabled = enabled; saveSettingsConfig(); }
 
     public static boolean isSafetyDisconnectEnabled() { return safetyDisconnectEnabled; }
-    public static void setSafetyDisconnectEnabled(boolean enabled) { safetyDisconnectEnabled = enabled; saveBenches(); }
+    public static void setSafetyDisconnectEnabled(boolean enabled) { safetyDisconnectEnabled = enabled; saveSettingsConfig(); }
 
     public static AutoChainMode getAutoChainMode() { return autoChainMode; }
-    public static void setAutoChainMode(AutoChainMode mode) { autoChainMode = mode; saveBenches(); }
+    public static void setAutoChainMode(AutoChainMode mode) { autoChainMode = mode; saveSettingsConfig(); }
 
-    public static void setMinigameClickDelay(int delay) { minigameClickDelay = delay; }
+    public static void setMinigameClickDelay(int delay) { minigameClickDelay = delay; saveSettingsConfig(); }
     public static int getMinigameClickDelay() { return minigameClickDelay; }
 
-    public static void setCameraAlignSpeed(float speed) { cameraAlignSpeed = speed; }
+    public static void setCameraAlignSpeed(float speed) { cameraAlignSpeed = speed; saveSettingsConfig(); }
     public static float getCameraAlignSpeed() { return cameraAlignSpeed; }
 
-    public static void setGuiTimeoutLimit(int limit) { guiTimeoutLimit = limit; }
+    public static void setGuiTimeoutLimit(int limit) { guiTimeoutLimit = limit; saveSettingsConfig(); }
     public static int getGuiTimeoutLimit() { return guiTimeoutLimit; }
 
     public static State getCurrentState() { return currentState; }
@@ -509,7 +566,6 @@ public class AutoLumberjackController {
             return;
         }
 
-        // FULL_CHAIN: Jika planks >= 576 atau (planks > 0 tapi log sudah habis), craft ke box. Jika masih ada log, prioritaskan potong log dulu.
         if (plankCount >= 576 && craftBenchPos != null) {
             client.player.displayClientMessage(Component.literal("§6[SylvaraBot] Planks >= 9 stack! Menuju Craft Bench..."), false);
             shouldDisconnectAfterCraft = false;
@@ -520,7 +576,6 @@ public class AutoLumberjackController {
             startStaticProcessing(TaskType.LOG_TO_PLANK);
         } else {
             if (plankCount >= 32 && craftBenchPos != null) {
-                // Jika log habis dan planks belum 9 stack tapi masih cukup untuk dicraft (>32), craft sisa planks TANPA disconnect dini
                 client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Logs habis, melanjutkan crafting sisa planks..."), false);
                 shouldDisconnectAfterCraft = false;
                 startStaticProcessing(TaskType.PLANK_TO_BOX);
@@ -859,7 +914,7 @@ public class AutoLumberjackController {
                 startStaticProcessing(TaskType.LOG_TO_PLANK);
             } else {
                 if (plankCount >= 32 && craftBenchPos != null && autoChainMode == AutoChainMode.FULL_CHAIN) {
-                    shouldDisconnectAfterCraft = false; // Lanjutkan proses craft tanpa disconnect dini
+                    shouldDisconnectAfterCraft = false;
                     startStaticProcessing(TaskType.PLANK_TO_BOX);
                 } else {
                     if (hasBackpack) {
@@ -926,6 +981,7 @@ public class AutoLumberjackController {
     public static void registerEvents() {
         loadBenches();
         loadConsumablesConfig();
+        loadSettingsConfig(); // Muat pengaturan permanen dari file json
 
         ClientReceiveMessageEvents.CHAT.register((message, signedMessage, sender, params, receptionTimestamp) -> handleServerChat(message.getString()));
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> handleServerChat(message.getString()));
@@ -933,7 +989,6 @@ public class AutoLumberjackController {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.gameMode == null) return;
 
-            // Anti-Staff Pause
             if (antiStaffPauseEnabled && pausedByAdmin) {
                 if (isBotActive() || MovementController.isActive() || isStaticProcessing) {
                     MovementController.stop();
@@ -1339,14 +1394,6 @@ public class AutoLumberjackController {
         if (cleanChat.contains("[SylvaraBot]")) return;
 
         String lowerChat = cleanChat.toLowerCase();
-
-        // Fitur Safety Disconnect untuk Knock/Down dihilangkan sementara sesuai permintaan
-        /*
-        if (safetyDisconnectEnabled && (lowerChat.contains("down") || lowerChat.contains("knock") || lowerChat.contains("pingsan") || lowerChat.contains("tumbang"))) {
-            disconnectServer(client, "Player Down / Knocked terdeteksi dari chat! Disconnect instan.");
-            return;
-        }
-        */
 
         if (lowerChat.contains("tunggu beberapa detik") || lowerChat.contains("agar kamu bisa menebang")) {
             if (isBotActive() || MovementController.isActive()) {

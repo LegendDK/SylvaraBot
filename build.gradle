@@ -5,7 +5,7 @@ plugins {
 
 import java.util.Properties
 
-// --- LOGIKA AUTO-INCREMENT VERSION (Ditaruh setelah plugins) ---
+// --- LOGIKA AUTO-INCREMENT VERSION (major.minor.patch) ---
 File propFile = file('gradle.properties')
 Properties props = new Properties()
 
@@ -14,20 +14,26 @@ if (propFile.exists()) {
 }
 
 int major = props.getProperty("major", "1").toInteger()
-int minor = props.getProperty("minor", "0").toInteger()
+int minor = props.getProperty("minor", "4").toInteger()
+int patch = props.getProperty("patch", "0").toInteger()
 
 if (gradle.startParameter.taskNames.any { it.toLowerCase().contains("build") || it.toLowerCase().contains("jar") }) {
-	minor++
-	if (minor > 9) {
-		major++
-		minor = 0
+	patch++
+	if (patch > 9) {
+		patch = 0
+		minor++
+		if (minor > 9) {
+			minor = 0
+			major++
+		}
 	}
 	props.setProperty("major", major.toString())
 	props.setProperty("minor", minor.toString())
-	props.store(new FileOutputStream(propFile), "Auto-incremented build version")
+	props.setProperty("patch", patch.toString())
+	props.store(new FileOutputStream(propFile), "Auto-incremented build version (major.minor.patch)")
 }
 
-version = "${major}.${minor}"
+version = "${major}.${minor}.${patch}"
 // -----------------------------------------------------------
 
 repositories {
