@@ -281,7 +281,6 @@ public class AutoLumberjackController {
     private static final Set<String> activeStaffOnDuty = new HashSet<>();
     private static boolean pausedByAdmin = false;
 
-    // Getter & Setter Toggles & Sliders
     public static boolean isAutoEatEnabled() { return autoEatEnabled; }
     public static void setAutoEatEnabled(boolean enabled) { autoEatEnabled = enabled; saveBenches(); }
 
@@ -510,7 +509,7 @@ public class AutoLumberjackController {
             return;
         }
 
-        // FULL_CHAIN
+        // FULL_CHAIN: Jika planks >= 576 atau (planks > 0 tapi log sudah habis), craft ke box. Jika masih ada log, prioritaskan potong log dulu.
         if (plankCount >= 576 && craftBenchPos != null) {
             client.player.displayClientMessage(Component.literal("§6[SylvaraBot] Planks >= 9 stack! Menuju Craft Bench..."), false);
             shouldDisconnectAfterCraft = false;
@@ -520,9 +519,10 @@ public class AutoLumberjackController {
             shouldDisconnectAfterCraft = false;
             startStaticProcessing(TaskType.LOG_TO_PLANK);
         } else {
-            if (plankCount > 0 && craftBenchPos != null) {
-                client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Logs habis & Planks < 9 stack. Crafting sisa planks lalu Disconnect..."), false);
-                shouldDisconnectAfterCraft = true;
+            if (plankCount >= 32 && craftBenchPos != null) {
+                // Jika log habis dan planks belum 9 stack tapi masih cukup untuk dicraft (>32), craft sisa planks TANPA disconnect dini
+                client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Logs habis, melanjutkan crafting sisa planks..."), false);
+                shouldDisconnectAfterCraft = false;
                 startStaticProcessing(TaskType.PLANK_TO_BOX);
             } else {
                 if (hasBackpack) {
@@ -641,8 +641,8 @@ public class AutoLumberjackController {
                     targetBlockPos = sawBenchPos;
                     targetYaw = sawYaw;
                     targetPitch = sawPitch;
-                } else if (plankCount > 0 && craftBenchPos != null) {
-                    shouldDisconnectAfterCraft = true;
+                } else if (plankCount >= 32 && craftBenchPos != null) {
+                    shouldDisconnectAfterCraft = false;
                     targetBlockPos = craftBenchPos;
                     targetYaw = craftYaw;
                     targetPitch = craftPitch;
@@ -858,8 +858,8 @@ public class AutoLumberjackController {
             } else if (logCount > 0 && sawBenchPos != null) {
                 startStaticProcessing(TaskType.LOG_TO_PLANK);
             } else {
-                if (plankCount > 0 && craftBenchPos != null && autoChainMode == AutoChainMode.FULL_CHAIN) {
-                    shouldDisconnectAfterCraft = true;
+                if (plankCount >= 32 && craftBenchPos != null && autoChainMode == AutoChainMode.FULL_CHAIN) {
+                    shouldDisconnectAfterCraft = false; // Lanjutkan proses craft tanpa disconnect dini
                     startStaticProcessing(TaskType.PLANK_TO_BOX);
                 } else {
                     if (hasBackpack) {
@@ -944,12 +944,6 @@ public class AutoLumberjackController {
                 } else {
                     pausedByAdmin = false;
                 }
-            }
-
-            // Safety Disconnect
-            if (safetyDisconnectEnabled && (client.player.isDeadOrDying() || client.player.getHealth() <= 0.0F)) {
-                disconnectServer(client, "Player Down / Knocked! Safety Disconnect Instan.");
-                return;
             }
 
             if (isStaticProcessing && (currentState == State.WAITING_PROGRESS || currentState == State.SOLVING_NEBANG_GUI || currentState == State.SOLVING_MINIGAME_GUI)) {
@@ -1346,10 +1340,13 @@ public class AutoLumberjackController {
 
         String lowerChat = cleanChat.toLowerCase();
 
+        // Fitur Safety Disconnect untuk Knock/Down dihilangkan sementara sesuai permintaan
+        /*
         if (safetyDisconnectEnabled && (lowerChat.contains("down") || lowerChat.contains("knock") || lowerChat.contains("pingsan") || lowerChat.contains("tumbang"))) {
             disconnectServer(client, "Player Down / Knocked terdeteksi dari chat! Disconnect instan.");
             return;
         }
+        */
 
         if (lowerChat.contains("tunggu beberapa detik") || lowerChat.contains("agar kamu bisa menebang")) {
             if (isBotActive() || MovementController.isActive()) {

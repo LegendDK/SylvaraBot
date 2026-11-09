@@ -217,24 +217,25 @@ public class SylvaraScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        String modVersion = FabricLoader.getInstance()
-                .getModContainer("sylvarabot") // Ganti dengan modid di fabric.mod.json kamu jika berbeda
-                .map(container -> container.getMetadata().getVersion().getFriendlyString())
-                .orElse("1.0");
-
         int centerX = this.width / 2;
         int centerY = this.height / 2;
 
+        // Background transparan gelap
         guiGraphics.fill(0, 0, this.width, this.height, 0xCE070A14);
 
         int topY = centerY - 115;
-        guiGraphics.blit(MOD_LOGO, centerX - 92, topY - 24, 0, 0, 18, 18, 18, 18);
-        int versionWidth = this.font.width("§lSylvara§bGUI §8| §7v" + modVersion);
-        guiGraphics.drawString(this.font, "§lSylvara§bGUI §8| §7v" + modVersion, centerX - (versionWidth / 2), topY + 10, 0xFF94A3B8, false);
-
+        int panelWidth = 210;
         int leftX = centerX - 225;
         int rightX = centerX + 15;
-        int panelWidth = 210;
+
+        // Ambil versi mod otomatis dari gradle/fabric
+        String modVersion = FabricLoader.getInstance()
+                .getModContainer("sylvarabot")
+                .map(container -> container.getMetadata().getVersion().getFriendlyString())
+                .orElse("1.0");
+
+        // RENDER VERSI DI ATAS KOTAK (Aman, tidak tertutup card)
+        guiGraphics.drawString(this.font, "§lSylvara§bGUI §8| §7v" + modVersion, leftX, topY - 14, 0xFF94A3B8, false);
 
         drawModernCard(guiGraphics, leftX, topY, leftX + panelWidth, topY + 106, "⚡ Control Center");
         drawModernCard(guiGraphics, leftX, topY + 112, leftX + panelWidth, topY + 230, "🛠 Bench & Settings");
