@@ -96,7 +96,7 @@ public class SylvaraSettingsScreen extends Screen {
         // ==========================================
         // KOTAK 2 (KIRI BAWAH): FOOD TOGGLES
         // ==========================================
-        int c2Y = topY + 130;
+        int c2Y = topY + 156;
         for (AutoLumberjackController.ConsumableItem food : AutoLumberjackController.getFoodList()) {
             Button foodBtn = Button.builder(Component.literal("Food: " + food.name + " " + (food.enabled ? "§aON" : "§cOFF")), button -> {
                 AutoLumberjackController.toggleFood(food.name);
@@ -223,11 +223,11 @@ public class SylvaraSettingsScreen extends Screen {
 
         guiGraphics.drawString(this.font, "§lSylvara§bGUI §8| §7v" + modVersion, leftX, topY - 14, 0xFF94A3B8, false);
 
-        drawModernCard(guiGraphics, leftX, topY, leftX + panelWidth, topY + 98, "⚙ General Toggles");
-        drawModernCard(guiGraphics, leftX, topY + 104, leftX + panelWidth, topY + 230, "🍖 Food Toggles");
+        drawModernCard(guiGraphics, leftX, topY, leftX + panelWidth, topY + 130, "⚙ General Toggles");
+        drawModernCard(guiGraphics, leftX, topY + 136, leftX + panelWidth, topY + 230, "🍖 Food Toggles");
 
-        drawModernCard(guiGraphics, rightX, topY, rightX + panelWidth, topY + 98, "🥤 Drink Toggles");
-        drawModernCard(guiGraphics, rightX, topY + 104, rightX + panelWidth, topY + 230, "⚡ Advanced Sliders");
+        drawModernCard(guiGraphics, rightX, topY, rightX + panelWidth, topY + 130, "🥤 Drink Toggles");
+        drawModernCard(guiGraphics, rightX, topY + 136, rightX + panelWidth, topY + 230, "⚡ Advanced Sliders");
 
         super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
