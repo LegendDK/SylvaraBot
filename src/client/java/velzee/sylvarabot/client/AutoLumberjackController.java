@@ -73,6 +73,7 @@ public class AutoLumberjackController {
     private static boolean antiStaffPauseEnabled = true;
     private static boolean safetyDisconnectEnabled = true;
     private static AutoChainMode autoChainMode = AutoChainMode.FULL_CHAIN;
+    private static boolean autoAxeEnabled = true;
 
     // Parameter kustom dari Slider Settings
     private static int minigameClickDelay = 10;
@@ -112,6 +113,7 @@ public class AutoLumberjackController {
         boolean antiStaffPauseEnabled = true;
         boolean safetyDisconnectEnabled = true;
         String autoChainMode = "FULL_CHAIN";
+        boolean autoAxeEnabled = true;
         int minigameClickDelay = 10;
         float cameraAlignSpeed = 0.15F;
         int guiTimeoutLimit = 240;
@@ -129,6 +131,7 @@ public class AutoLumberjackController {
             data.minigameClickDelay = minigameClickDelay;
             data.cameraAlignSpeed = cameraAlignSpeed;
             data.guiTimeoutLimit = guiTimeoutLimit;
+            data.autoAxeEnabled = autoAxeEnabled;
 
             try (FileWriter writer = new FileWriter(SETTINGS_CONFIG_FILE)) {
                 new GsonBuilder().setPrettyPrinting().create().toJson(data, writer);
@@ -154,6 +157,8 @@ public class AutoLumberjackController {
                 minigameClickDelay = data.minigameClickDelay;
                 cameraAlignSpeed = data.cameraAlignSpeed;
                 guiTimeoutLimit = data.guiTimeoutLimit;
+                autoAxeEnabled = data.autoAxeEnabled;
+
                 try {
                     autoChainMode = AutoChainMode.valueOf(data.autoChainMode);
                 } catch (Exception ignored) {
@@ -175,6 +180,7 @@ public class AutoLumberjackController {
         minigameClickDelay = 10;
         cameraAlignSpeed = 0.15F;
         guiTimeoutLimit = 240;
+        autoAxeEnabled = true;
         saveSettingsConfig();
     }
 
@@ -368,6 +374,9 @@ public class AutoLumberjackController {
     public static State getCurrentState() { return currentState; }
     public static TaskType getCurrentTaskType() { return currentTaskType; }
     public static boolean isStaticProcessingActive() { return isStaticProcessing; }
+
+    public static boolean isAutoAxeEnabled() { return autoAxeEnabled; }
+    public static void setAutoAxeEnabled(boolean enabled) { autoAxeEnabled = enabled; saveSettingsConfig(); }
 
     public static void setSawBenchWaypoint(BlockPos pos, float yaw, float pitch) {
         sawBenchPos = pos;
@@ -1032,7 +1041,7 @@ public class AutoLumberjackController {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.gameMode == null) return;
 
-            if ((isFarmingActive() || isStaticProcessingActive()) && currentState != State.IDLE) {
+            if (autoAxeEnabled && (isFarmingActive() || isStaticProcessingActive()) && currentState != State.IDLE) {
                 if (isAxeLowOrBroken(client)) {
                     boolean foundSpare = switchToSpareAxeOrWithdraw(client);
 

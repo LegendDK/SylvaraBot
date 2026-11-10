@@ -60,7 +60,7 @@ public class SylvaraSettingsScreen extends Screen {
             button.setMessage(Component.literal(next ? "Auto Eat: §aON" : "Auto Eat: §cOFF"));
         }).bounds(leftX + 12, c1Y, panelWidth - 24, 18).build();
         allElements.add(new GuiElementInfo(autoEatBtn, "General Toggles"));
-        c1Y += 22;
+        c1Y += 20;
 
         Button autoDrinkBtn = Button.builder(Component.literal(AutoLumberjackController.isAutoDrinkEnabled() ? "Auto Drink: §aON" : "Auto Drink: §cOFF"), button -> {
             boolean next = !AutoLumberjackController.isAutoDrinkEnabled();
@@ -68,7 +68,7 @@ public class SylvaraSettingsScreen extends Screen {
             button.setMessage(Component.literal(next ? "Auto Drink: §aON" : "Auto Drink: §cOFF"));
         }).bounds(leftX + 12, c1Y, panelWidth - 24, 18).build();
         allElements.add(new GuiElementInfo(autoDrinkBtn, "General Toggles"));
-        c1Y += 22;
+        c1Y += 20;
 
         Button backpackBtn = Button.builder(Component.literal(AutoLumberjackController.isHasBackpack() ? "Backpack: §aON" : "Backpack: §cOFF"), button -> {
             boolean next = !AutoLumberjackController.isHasBackpack();
@@ -76,7 +76,7 @@ public class SylvaraSettingsScreen extends Screen {
             button.setMessage(Component.literal(next ? "Backpack: §aON" : "Backpack: §cOFF"));
         }).bounds(leftX + 12, c1Y, panelWidth - 24, 18).build();
         allElements.add(new GuiElementInfo(backpackBtn, "General Toggles"));
-        c1Y += 22;
+        c1Y += 20;
 
         Button staffBtn = Button.builder(Component.literal(AutoLumberjackController.isAntiStaffPauseEnabled() ? "Staff Pause: §aON" : "Staff Pause: §cOFF"), button -> {
             boolean next = !AutoLumberjackController.isAntiStaffPauseEnabled();
@@ -84,7 +84,7 @@ public class SylvaraSettingsScreen extends Screen {
             button.setMessage(Component.literal(next ? "Staff Pause: §aON" : "Staff Pause: §cOFF"));
         }).bounds(leftX + 12, c1Y, panelWidth - 24, 18).build();
         allElements.add(new GuiElementInfo(staffBtn, "General Toggles"));
-        c1Y += 22;
+        c1Y += 20;
 
         Button safetyBtn = Button.builder(Component.literal(AutoLumberjackController.isSafetyDisconnectEnabled() ? "Safety Disconnect: §aON" : "Safety Disconnect: §cOFF"), button -> {
             boolean next = !AutoLumberjackController.isSafetyDisconnectEnabled();
@@ -92,6 +92,15 @@ public class SylvaraSettingsScreen extends Screen {
             button.setMessage(Component.literal(next ? "Safety Disconnect: §aON" : "Safety Disconnect: §cOFF"));
         }).bounds(leftX + 12, c1Y, panelWidth - 24, 18).build();
         allElements.add(new GuiElementInfo(safetyBtn, "General Toggles"));
+        c1Y += 20;
+
+        // Tombol Toggle Auto Axe Baru
+        Button autoAxeBtn = Button.builder(Component.literal(AutoLumberjackController.isAutoAxeEnabled() ? "Auto Axe: §aON" : "Auto Axe: §cOFF"), button -> {
+            boolean next = !AutoLumberjackController.isAutoAxeEnabled();
+            AutoLumberjackController.setAutoAxeEnabled(next);
+            button.setMessage(Component.literal(next ? "Auto Axe: §aON" : "Auto Axe: §cOFF"));
+        }).bounds(leftX + 12, c1Y, panelWidth - 24, 18).build();
+        allElements.add(new GuiElementInfo(autoAxeBtn, "General Toggles"));
 
 
         // ==========================================
@@ -151,7 +160,7 @@ public class SylvaraSettingsScreen extends Screen {
             this.addRenderableWidget(info.widget);
         }
 
-        // Tombol Kembali & Tombol Reset to Default di Bawah
+        // Tombol Kembali & Reset Default di Bawah
         int btnWidth = 100;
         int btnHeight = 20;
         int btnY = topY + 236;
@@ -163,7 +172,7 @@ public class SylvaraSettingsScreen extends Screen {
 
         this.resetDefaultButton = Button.builder(Component.literal("§e↺ Reset Default"), button -> {
             AutoLumberjackController.resetSettingsToDefault();
-            this.init(); // Refresh GUI kembali ke nilai default
+            this.init();
         }).bounds(centerX + 5, btnY, btnWidth, btnHeight).build();
         this.addRenderableWidget(this.resetDefaultButton);
     }
