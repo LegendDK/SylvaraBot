@@ -470,6 +470,49 @@ public class AutoLumberjackController {
         return componentStr.contains("10052.0") || componentStr.contains("10054.0") || componentStr.contains("animation=EAT");
     }
 
+    public static boolean isAxeLowOrBroken(net.minecraft.client.Minecraft client) {
+        if (client.player == null) return false;
+
+        for (int i = 0; i < 9; i++) {
+            ItemStack stack = client.player.getInventory().getItem(i);
+            String itemName = stack.getItem().getDescriptionId().toLowerCase();
+
+            if (itemName.contains("axe") || itemName.contains("kapak")) {
+                if (!stack.isDamageableItem()) return false;
+
+                int maxDamage = stack.getMaxDamage();
+                int currentDamage = stack.getDamageValue();
+                int durabilityLeft = maxDamage - currentDamage;
+
+                if (durabilityLeft <= 5) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static boolean switchToSpareAxeOrWithdraw(net.minecraft.client.Minecraft client) {
+        if (client.player == null || client.gameMode == null) return false;
+
+        int size = client.player.getInventory().getContainerSize();
+        for (int i = 9; i < size; i++) {
+            ItemStack stack = client.player.getInventory().getItem(i);
+            String itemName = stack.getItem().getDescriptionId().toLowerCase();
+
+            if (itemName.contains("axe") || itemName.contains("kapak")) {
+                if (stack.isDamageableItem() && (stack.getMaxDamage() - stack.getDamageValue() > 10)) {
+                    int slotInMenu = i < 9 ? 36 + i : i;
+                    client.gameMode.handleInventoryMouseClick(0, slotInMenu, 1, ClickType.SWAP, client.player);
+                    client.player.getInventory().setSelectedSlot(1);
+                    client.player.displayClientMessage(Component.literal("§a[SylvaraBot] Kapak utama hampir rusak. Berhasil mengganti dengan kapak cadangan ke slot 2!"), false);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private static int countMaterialInInventory(net.minecraft.client.Minecraft client, String type) {
         if (client.player == null) return 0;
         int total = 0;
@@ -981,13 +1024,34 @@ public class AutoLumberjackController {
     public static void registerEvents() {
         loadBenches();
         loadConsumablesConfig();
-        loadSettingsConfig(); // Muat pengaturan permanen dari file json
+        loadSettingsConfig();
 
         ClientReceiveMessageEvents.CHAT.register((message, signedMessage, sender, params, receptionTimestamp) -> handleServerChat(message.getString()));
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> handleServerChat(message.getString()));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.gameMode == null) return;
+
+            if ((isFarmingActive() || isStaticProcessingActive()) && currentState != State.IDLE) {
+                if (isAxeLowOrBroken(client)) {
+                    boolean foundSpare = switchToSpareAxeOrWithdraw(client);
+
+                    if (!foundSpare) {
+                        if (hasBackpack) {
+                            client.player.displayClientMessage(Component.literal("§e[SylvaraBot] Kapak habis di inventory, mencoba mengambil dari ransel..."), false);
+                            saveCurrentBotState(client);
+                            openRanselCommand(client);
+                            currentState = State.OPENING_RANSEL_WITHDRAW;
+                            ranselTimeoutTicks = 60;
+                        } else {
+                            client.player.displayClientMessage(Component.literal("§c[SylvaraBot] Peringatan: Kapak rusak & tidak ada cadangan! Bot dijeda."), true);
+                            stopTask();
+                            MovementController.stop();
+                        }
+                    }
+                    return;
+                }
+            }
 
             if (antiStaffPauseEnabled && pausedByAdmin) {
                 if (isBotActive() || MovementController.isActive() || isStaticProcessing) {
